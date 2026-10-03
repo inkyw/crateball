@@ -24,11 +24,13 @@ describe('gün/gece', () => {
       { t: 'phaseChanged', phase: 'night', day: 1, night: 1 },
     ]);
     spawnCreature(s, 'shadeling', 10, 10);
+    s.projectiles[999] = { id: 999, x: 5, z: 5, targetId: 0, damage: 10 };
     const ev2 = run(s, 1500);
     expect(s.phase).toBe('day');
     expect(s.day).toBe(2);
     expect(s.night).toBe(1);
     expect(Object.keys(s.creatures)).toHaveLength(0);
+    expect(Object.keys(s.projectiles)).toHaveLength(0);
     expect(ev2.filter((e) => e.t === 'phaseChanged')).toEqual([
       { t: 'phaseChanged', phase: 'day', day: 2, night: 1 },
     ]);

@@ -3,7 +3,8 @@ import { LEVEL_GROUND } from '../content/island';
 import { AXE, PLAYER, RESPAWN_SEARCH_RADIUS } from '../content/player';
 import { DT, secondsToTicks } from '../content/time';
 import { cellCenter, cellOf, cidx, inGrid } from '../grid';
-import { moveCircle } from '../movement';
+import { isSolidCell, moveCircle } from '../movement';
+import { circleOverlapsCell } from '../placement';
 import { ids } from '../state';
 import type { GameState, Player, PlayerInput, ResourceNode, SimEvent, Vec2 } from '../types';
 import { damageCreature } from './combat';
@@ -52,9 +53,21 @@ function swingAxe(state: GameState, p: Player, events: SimEvent[]): void {
   if (best) hitNode(state, best, p.x, p.z, p.id, events);
 }
 
+/** Dairenin değdiği hiçbir hücre katı (kaynak/bina) değil mi. */
+function circleFree(state: GameState, x: number, z: number): boolean {
+  const [i, j] = cellOf(x, z);
+  for (let dj = -1; dj <= 1; dj++)
+    for (let di = -1; di <= 1; di++) {
+      if (!inGrid(i + di, j + dj)) continue;
+      if (isSolidCell(state, cidx(i + di, j + dj)) && circleOverlapsCell(x, z, PLAYER.radius, i + di, j + dj))
+        return false;
+    }
+  return true;
+}
+
 /**
- * Doğma noktası: Hearth yanındaki varsayılan hücre doluysa (çit vb.) etrafındaki halkalar sabit sırayla
- * taranır; ilk boş, su/rampa olmayan zemin hücresinin merkezi seçilir (deterministik).
+ * Doğma noktası: varsayılan nokta (tüm oyuncu dairesi boş ise) yoksa Hearth yanındaki halkalar sabit sırayla
+ * taranır; ilk boş, su/rampa olmayan zemin hücresinin merkezi (dairesi katı hücreye değmiyorsa) seçilir.
  */
 export function findRespawnPoint(state: GameState): Vec2 {
   const [ci, cj] = cellOf(PLAYER.respawnPos.x, PLAYER.respawnPos.z);
@@ -64,8 +77,9 @@ export function findRespawnPoint(state: GameState): Vec2 {
         if (Math.max(Math.abs(di), Math.abs(dj)) !== r || !inGrid(ci + di, cj + dj)) continue;
         const c = cidx(ci + di, cj + dj);
         if (state.island.level[c] !== LEVEL_GROUND || state.island.ramp[c] || state.occ[c]) continue;
-        const [x, z] = cellCenter(ci + di, cj + dj);
-        return r === 0 ? { x: PLAYER.respawnPos.x, z: PLAYER.respawnPos.z } : { x, z };
+        const [cx, cz] = cellCenter(ci + di, cj + dj);
+        const at = r === 0 ? { x: PLAYER.respawnPos.x, z: PLAYER.respawnPos.z } : { x: cx, z: cz };
+        if (circleFree(state, at.x, at.z)) return at;
       }
   return { x: PLAYER.respawnPos.x, z: PLAYER.respawnPos.z };
 }
