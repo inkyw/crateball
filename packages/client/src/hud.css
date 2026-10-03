@@ -1,0 +1,242 @@
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  font-family: 'Baloo 2', system-ui, sans-serif;
+  color: #fff4e0;
+  --ink3: #2a3360;
+  --line: rgba(255, 244, 224, 0.12);
+  --muted: #a9a8c9;
+  --ember: #ff9a3d;
+  --ember-d: #c8641f;
+}
+#hud .panel {
+  background: rgba(20, 26, 51, 0.8);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  backdrop-filter: blur(6px);
+}
+#hud svg.i {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+#hud .res {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  display: flex;
+  gap: 8px;
+  padding: 0;
+  background: none;
+  border: 0;
+}
+#hud .res span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-weight: 600;
+  font-size: 16px;
+  background: rgba(20, 26, 51, 0.8);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+#hud .phase {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 14px 9px;
+  text-align: center;
+  min-width: 190px;
+}
+#hud .phase b {
+  display: block;
+  font-size: 17px;
+}
+#hud .phase small {
+  font-family: Nunito, system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 11px;
+  color: var(--muted);
+}
+#hud .track {
+  height: 6px;
+  border-radius: 3px;
+  margin-top: 6px;
+  background: var(--ink3);
+  overflow: hidden;
+}
+#hud .track i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #8fd0f2, #ffc27a);
+  transition: width 0.3s linear;
+}
+#hud.night .track i {
+  background: linear-gradient(90deg, #6b7cff, #c9d4ff);
+}
+#hud .bars {
+  position: absolute;
+  left: 14px;
+  top: 64px;
+  display: grid;
+  gap: 6px;
+}
+#hud .bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 9px 5px 7px;
+  width: 180px;
+}
+#hud .bar > div {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+}
+#hud .av {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #e8604c;
+  color: #1b1330;
+  font-weight: 700;
+  font-size: 12px;
+  flex: none;
+}
+#hud .hp {
+  height: 5px;
+  border-radius: 3px;
+  background: #3a2030;
+  margin-top: 3px;
+  overflow: hidden;
+}
+#hud .hp i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #ff6b5a, #ffa05a);
+  transition: width 0.2s linear;
+}
+#hud .hp.hearth i {
+  background: linear-gradient(90deg, #ff6a2a, #ffe48a);
+}
+#hud .hotbar {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+}
+#hud .slot {
+  width: 78px;
+  padding: 7px 4px 6px;
+  text-align: center;
+  position: relative;
+}
+#hud .slot.on {
+  border-color: var(--ember);
+  box-shadow: 0 0 0 2px rgba(255, 154, 61, 0.35);
+}
+#hud .slot.dim {
+  opacity: 0.45;
+}
+#hud .slot em {
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  font-style: normal;
+  font-size: 10px;
+  color: var(--muted);
+}
+#hud .slot b {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 8px;
+}
+#hud .slot small {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 3px;
+  font-family: Nunito, system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 10px;
+  color: var(--muted);
+}
+#hud .slot small svg {
+  width: 11px;
+  height: 11px;
+}
+#hud .pop {
+  position: fixed;
+  transform: translate(-50%, -110%);
+  font-weight: 600;
+  font-size: 14px;
+  background: rgba(20, 26, 51, 0.82);
+  border: 1px solid var(--line);
+  padding: 3px 10px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+#hud .pop[hidden],
+#hud .notice[hidden],
+#hud .overlay[hidden] {
+  display: none;
+}
+#hud .notice {
+  position: absolute;
+  left: 50%;
+  bottom: 110px;
+  transform: translateX(-50%);
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffb1a5;
+  background: rgba(120, 30, 40, 0.55);
+  border: 1px solid rgba(255, 120, 100, 0.35);
+  padding: 6px 12px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+#hud .overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(10, 13, 32, 0.6);
+  backdrop-filter: blur(6px);
+  pointer-events: auto;
+}
+#hud .card {
+  padding: 28px 32px;
+  text-align: center;
+  border-radius: 18px;
+}
+#hud .card h1 {
+  margin: 0 0 6px;
+  font-size: 30px;
+  font-weight: 700;
+}
+#hud .card p {
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-family: Nunito, system-ui, sans-serif;
+  font-weight: 700;
+}
+#hud .card button {
+  font: inherit;
+  font-weight: 600;
+  font-size: 16px;
+  border: 0;
+  border-radius: 14px;
+  padding: 12px 22px;
+  color: #3a1a06;
+  background: linear-gradient(#ffb760, #ff9a3d);
+  box-shadow: 0 4px 0 var(--ember-d);
+  cursor: pointer;
+}
