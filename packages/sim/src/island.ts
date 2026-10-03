@@ -1,5 +1,9 @@
 import {
   GRID_SIZE,
+  HILL_BLOB_AMOUNT,
+  HILL_BLOB_FREQ,
+  HILL_BLOB_MID,
+  HILL_BLOB_SEED,
   HILL_CELL_MIN_WATER_DIST,
   HILL_CENTER_MAX_R,
   HILL_CENTER_MIN_R,
@@ -8,13 +12,35 @@ import {
   HILL_MIN_WATER_DIST,
   HILL_RADIUS_MIN,
   HILL_RADIUS_RANGE,
+  HILL_SEED_SALT,
   HILL_TRIES,
+  HILL_WINDOW,
   ISLAND_RADIUS,
   LEVEL_GROUND,
   LEVEL_HILL,
   MIN_HILL_CELLS,
   PLAZA_RADIUS,
+  RAMP_SEED_SALT,
   RAMP_WIDTH,
+  TERRAIN_EDGE_NOISE_AMOUNT,
+  TERRAIN_EDGE_NOISE_FREQ,
+  TERRAIN_EDGE_NOISE_MID,
+  TERRAIN_EDGE_NOISE_OCTAVES,
+  TERRAIN_EDGE_NOISE_OFFSET_X,
+  TERRAIN_EDGE_NOISE_OFFSET_Z,
+  TERRAIN_EDGE_SMOOTH_FROM,
+  TERRAIN_EDGE_SMOOTH_TO,
+  TERRAIN_HEIGHT_AMPLITUDE,
+  TERRAIN_HEIGHT_BASE,
+  TERRAIN_HEIGHT_BIAS,
+  TERRAIN_HEIGHT_FREQ,
+  TERRAIN_HEIGHT_OCTAVES,
+  TERRAIN_HEIGHT_OFFSET_X,
+  TERRAIN_HEIGHT_OFFSET_Z,
+  TERRAIN_HEIGHT_SEED_SHIFT,
+  TERRAIN_LAND_THRESHOLD,
+  TERRAIN_SMOOTH_MIN_VOTES,
+  TERRAIN_SMOOTH_PASSES,
   WATER,
 } from './content/island';
 import { DIRS, cellCenter, cellCoords, cidx, inGrid } from './grid';
@@ -24,14 +50,28 @@ import type { IslandGrid, Ramp } from './types';
 
 const N = GRID_SIZE;
 const NN = N * N;
-const HILL_SEED_SALT = 99;
-const RAMP_SEED_SALT = 777;
 
 function rawHeight(x: number, z: number, seed: number): number {
   const r = Math.sqrt(x * x + z * z); // Math.hypot yerine: IEEE-kesin sqrt, motorlar arası aynı
-  const n = fbm(x * 0.11 + 3.1, z * 0.11 - 1.7, seed, 4);
-  const edge = r / ISLAND_RADIUS + (n - 0.5) * 0.6;
-  return (1 - smoothstep(0.5, 1.0, edge)) * (0.9 + fbm(x * 0.07 + 10, z * 0.07, seed + 7, 3) * 2.4) - 0.45;
+  const n = fbm(
+    x * TERRAIN_EDGE_NOISE_FREQ + TERRAIN_EDGE_NOISE_OFFSET_X,
+    z * TERRAIN_EDGE_NOISE_FREQ + TERRAIN_EDGE_NOISE_OFFSET_Z,
+    seed,
+    TERRAIN_EDGE_NOISE_OCTAVES,
+  );
+  const edge = r / ISLAND_RADIUS + (n - TERRAIN_EDGE_NOISE_MID) * TERRAIN_EDGE_NOISE_AMOUNT;
+  return (
+    (1 - smoothstep(TERRAIN_EDGE_SMOOTH_FROM, TERRAIN_EDGE_SMOOTH_TO, edge)) *
+      (TERRAIN_HEIGHT_BASE +
+        fbm(
+          x * TERRAIN_HEIGHT_FREQ + TERRAIN_HEIGHT_OFFSET_X,
+          z * TERRAIN_HEIGHT_FREQ + TERRAIN_HEIGHT_OFFSET_Z,
+          seed + TERRAIN_HEIGHT_SEED_SHIFT,
+          TERRAIN_HEIGHT_OCTAVES,
+        ) *
+          TERRAIN_HEIGHT_AMPLITUDE) +
+    TERRAIN_HEIGHT_BIAS
+  );
 }
 
 function bfsDistance(isSource: (c: number) => boolean): number[] {
@@ -131,10 +171,12 @@ export function generateIsland(seed: number): IslandGrid {
     for (let i = 0; i < N; i++) {
       const [x, z] = cellCenter(i, j);
       level[cidx(i, j)] =
-        x * x + z * z < PLAZA_RADIUS * PLAZA_RADIUS || rawHeight(x, z, seed) >= 0.02 ? LEVEL_GROUND : WATER;
+        x * x + z * z < PLAZA_RADIUS * PLAZA_RADIUS || rawHeight(x, z, seed) >= TERRAIN_LAND_THRESHOLD
+          ? LEVEL_GROUND
+          : WATER;
     }
   // Çoğunluk filtresi: bölgeler benekli değil, topaklı olsun.
-  for (let pass = 0; pass < 2; pass++) {
+  for (let pass = 0; pass < TERRAIN_SMOOTH_PASSES; pass++) {
     const src = level.slice();
     for (let j = 1; j < N - 1; j++)
       for (let i = 1; i < N - 1; i++) {
@@ -144,7 +186,7 @@ export function generateIsland(seed: number): IslandGrid {
         for (let dj = -1; dj <= 1; dj++)
           for (let di = -1; di <= 1; di++) cnt[(src[cidx(i + di, j + dj)] as number) + 1]!++;
         const best = cnt.indexOf(Math.max(...cnt));
-        if ((cnt[best] as number) >= 5) level[cidx(i, j)] = best - 1;
+        if ((cnt[best] as number) >= TERRAIN_SMOOTH_MIN_VOTES) level[cidx(i, j)] = best - 1;
       }
   }
   const dWater = bfsDistance((c) => level[c] === WATER);
@@ -180,8 +222,8 @@ export function generateIsland(seed: number): IslandGrid {
     )
       continue;
     const placed: number[] = [];
-    for (let dj = -4; dj <= 4; dj++)
-      for (let di = -4; di <= 4; di++) {
+    for (let dj = -HILL_WINDOW; dj <= HILL_WINDOW; dj++)
+      for (let di = -HILL_WINDOW; di <= HILL_WINDOW; di++) {
         const i = ci + di;
         const j = cj + dj;
         if (!inGrid(i, j)) continue;
@@ -193,7 +235,12 @@ export function generateIsland(seed: number): IslandGrid {
           x * x + z * z < plazaGuard2
         )
           continue;
-        if (Math.sqrt(di * di + dj * dj) + (vnoise(x * 0.9, z * 0.9, 61) - 0.5) * 1.2 <= rad) {
+        if (
+          Math.sqrt(di * di + dj * dj) +
+            (vnoise(x * HILL_BLOB_FREQ, z * HILL_BLOB_FREQ, HILL_BLOB_SEED) - HILL_BLOB_MID) *
+              HILL_BLOB_AMOUNT <=
+          rad
+        ) {
           level[c] = LEVEL_HILL;
           placed.push(c);
         }
