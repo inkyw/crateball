@@ -1,4 +1,4 @@
-# Gece Gelmeden — Tasarım Dokümanı (Spec)
+# Before Nightfall (çalışma adı: Gece Gelmeden) — Tasarım Dokümanı (Spec)
 
 - **Tarih:** 2026-10-03
 - **Durum:** Taslak — kullanıcı onayı bekliyor
@@ -27,6 +27,24 @@ Oyun başladıktan sonra katılma (kopan oyuncu geri dönebilir), hesap sistemi,
 gamepad, birden fazla harita tipi, boss, sohbet, hile koruması, P2P/host-tarayıcı modu
 (mimari buna izin verir ama v1'de yok).
 
+## 1.1 İsim sözlüğü (oyunda görünen İngilizce adlar)
+
+Bu dokümanda Türkçe adlar geçer; oyunda, kodda ve arayüzde **İngilizce** karşılıkları kullanılır.
+
+| Türkçe (spec) | İngilizce (oyun/kod) |
+|---|---|
+| Gece Gelmeden | Before Nightfall |
+| Ocak | The Hearth (`hearth`) |
+| Gölgecik / Kütük / Fenerböceği | Shadeling / Stumpkin / Glowbug |
+| Oduncu / Okçu / Fenerci | Woodcutter / Archer / Lamplighter |
+| Çit / Ok Kulesi / Fener | Fence / Arrow Tower / Lantern |
+| Kıvılcım | Embers |
+| Şafak kartları ("Şafak söktü") | Dawn Cards ("Dawn breaks") |
+| Çift Ok / Keskin Balta / Geniş Hale | Double Shot / Keen Axe / Wide Glow |
+| odun / taş | wood / stone |
+| Oda Kur / Oda Ara / Kodla Katıl / Oyunu Başlat | Create Room / Find Room / Join with Code / Start Game |
+| Kaynak döngüsü / Yerleştirme | Resource loop / Build mode |
+
 ## 2. Kararlar özeti
 
 | Konu | Karar | Neden |
@@ -41,7 +59,8 @@ gamepad, birden fazla harita tipi, boss, sohbet, hile koruması, P2P/host-taray�
 | Monorepo | pnpm workspaces | Paket sınırları net |
 | Test | Vitest (birim/sim), Playwright (e2e, perf, görsel) | Gerçek tarayıcıda çok istemcili test |
 | Görsel stil | Low-poly izometrik 3D, kodla üretilen modeller, tek palet | Asset kit ile onaylandı |
-| Fontlar | Baloo 2 (başlık/buton), Nunito (metin) — ikisi de Türkçe tam | Fredoka Türkçe karakterleri bozuyordu |
+| Oyun dili | **İngilizce** (oyuncuya görünen her metin); spec/plan/dokümanlar Türkçe | Repo ve oyun adı Before Nightfall; arkadaşlar dışında da paylaşılabilir |
+| Fontlar | Baloo 2 (başlık/buton), Nunito (metin) — Türkçe karakterleri de tam destekler (oyuncu takma adları) | Fredoka Türkçe karakterleri bozuyordu |
 
 ## 3. Oyun tasarımı
 
@@ -310,4 +329,4 @@ Prototip kit bilinçli olarak optimize edilmedi (~2500 çizim çağrısı); büt
 ## 11. Açık konular (uygulamayı engellemez)
 
 - Denge sayıları (süreler, maliyetler, dalga formülü) bot aracı ve playtest ile ayarlanacak; spec'teki değerler başlangıç değeridir.
-- Oyunun adı "Gece Gelmeden" çalışma adıdır.
+- Oyunun adı **Before Nightfall** (repo: rafiprb/before-nightfall); "Gece Gelmeden" Türkçe çalışma adıdır.
