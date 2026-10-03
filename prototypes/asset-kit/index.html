@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="tr">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gece Gelmeden Asset Kit</title>
+<title>Before Nightfall Asset Kit</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -222,40 +222,40 @@
 <div id="topbar" class="panel">
   <div class="logo">
     <svg><use href="#i-flame"/></svg>
-    <div><b>Gece Gelmeden</b><small>Asset Kit · prototip v0.1</small></div>
+    <div><b>Before Nightfall</b><small>Asset Kit · prototype v0.1</small></div>
   </div>
-  <button class="tab on" data-view="island">Ada</button>
-  <button class="tab" data-view="showcase">Vitrin</button>
-  <button class="tab" data-view="ui">Arayüz</button>
-  <button class="tab" data-view="palette">Palet</button>
+  <button class="tab on" data-view="island">Island</button>
+  <button class="tab" data-view="showcase">Showcase</button>
+  <button class="tab" data-view="ui">UI</button>
+  <button class="tab" data-view="palette">Palette</button>
 </div>
 
 <div id="side" class="panel">
-  <h4>Görüntü kalitesi</h4>
-  <div class="tog on" data-k="ao"><span>Ortam gölgesi<small>GTAO · köşeler, temas</small></span><i class="sw"></i></div>
-  <div class="tog on" data-k="bloom"><span>Parlama<small>Bloom · ateş, gözler, fener</small></span><i class="sw"></i></div>
-  <div class="tog on" data-k="tilt"><span>Minyatür odak<small>Tilt-shift · diorama hissi</small></span><i class="sw"></i></div>
-  <div class="tog on" data-k="shadows"><span>Gölgeler<small>Güneş / ay, yumuşak</small></span><i class="sw"></i></div>
-  <div class="tog" data-k="build"><span>Yerleştirme modu<small>Izgara · 1 Çit · 2 Kule · 3 Fener</small></span><i class="sw"></i></div>
-  <div class="tog" data-k="hud"><span>HUD önizleme<small>Oyun içi arayüz</small></span><i class="sw"></i></div>
+  <h4>Visual quality</h4>
+  <div class="tog on" data-k="ao"><span>Ambient occlusion<small>GTAO · corners, contact</small></span><i class="sw"></i></div>
+  <div class="tog on" data-k="bloom"><span>Glow<small>Bloom · fire, eyes, lantern</small></span><i class="sw"></i></div>
+  <div class="tog on" data-k="tilt"><span>Miniature focus<small>Tilt-shift · diorama feel</small></span><i class="sw"></i></div>
+  <div class="tog on" data-k="shadows"><span>Shadows<small>Sun / moon, soft</small></span><i class="sw"></i></div>
+  <div class="tog" data-k="build"><span>Build mode<small>Grid · 1 Fence · 2 Tower · 3 Lantern</small></span><i class="sw"></i></div>
+  <div class="tog" data-k="hud"><span>HUD preview<small>In-game interface</small></span><i class="sw"></i></div>
   <div class="stats">
     <div class="stat"><b id="sFps">–</b><small>FPS</small></div>
-    <div class="stat"><b id="sMs">–</b><small>CPU ms / kare</small></div>
-    <div class="stat"><b id="sCalls">–</b><small>çizim çağrısı</small></div>
-    <div class="stat"><b id="sTris">–</b><small>üçgen</small></div>
+    <div class="stat"><b id="sMs">–</b><small>CPU ms / frame</small></div>
+    <div class="stat"><b id="sCalls">–</b><small>draw calls</small></div>
+    <div class="stat"><b id="sTris">–</b><small>triangles</small></div>
   </div>
 </div>
 
 <div id="timebar" class="panel">
-  <button class="chip" data-t="0.42"><svg class="i"><use href="#i-sun"/></svg>Gündüz</button>
-  <button class="chip" data-t="0.755"><svg class="i"><use href="#i-dusk"/></svg>Gün batımı</button>
-  <button class="chip" data-t="0.95"><svg class="i"><use href="#i-moon"/></svg>Gece</button>
+  <button class="chip" data-t="0.42"><svg class="i"><use href="#i-sun"/></svg>Day</button>
+  <button class="chip" data-t="0.755"><svg class="i"><use href="#i-dusk"/></svg>Sunset</button>
+  <button class="chip" data-t="0.95"><svg class="i"><use href="#i-moon"/></svg>Night</button>
   <input id="tod" type="range" min="0" max="1000" value="420">
-  <button class="chip" id="play" title="Gün döngüsünü oynat"><svg class="i"><use href="#i-play"/></svg></button>
-  <span id="todLabel">10:05 · Gündüz</span>
+  <button class="chip" id="play" title="Play day cycle"><svg class="i"><use href="#i-play"/></svg></button>
+  <span id="todLabel">10:05 · Day</span>
 </div>
 
-<div id="note" class="panel"><div id="noteText"><b>Kaynak döngüsü</b>Ağaç ve taş sayısı sabit. Biri bitince adada rastgele boş bir hücrede yenisi büyür. Oduncu en yakın ağaca yol bularak yürür.</div></div>
+<div id="note" class="panel"><div id="noteText"><b>Resource loop</b>The number of trees and rocks stays fixed. When one runs out, a new one grows in a random empty cell on the island. The Woodcutter paths to the nearest tree.</div></div>
 <div id="buildBar" class="panel"></div>
 
 <!-- live HUD over diorama -->
@@ -263,89 +263,89 @@
 
 <!-- UI overlay -->
 <div id="ovUi" class="overlay">
-  <h2 class="ov-title">Arayüz taslakları</h2>
-  <p class="ov-sub">Menü → oda ara → lobi → oyun içi HUD → şafak kartları. Hepsi HTML/CSS; arkada canlı sahne.</p>
+  <h2 class="ov-title">UI mockups</h2>
+  <p class="ov-sub">Menu → find room → lobby → in-game HUD → dawn cards. All HTML/CSS; live scene behind.</p>
   <div class="screens">
     <div class="screen panel">
-      <div class="screen-cap">1 · Ana menü</div>
+      <div class="screen-cap">1 · Main menu</div>
       <div class="stack">
-        <div class="menu-logo"><svg><use href="#i-flame"/></svg><b>Gece Gelmeden</b><small>7 gece. Bir ocak. Birkaç arkadaş.</small></div>
+        <div class="menu-logo"><svg><use href="#i-flame"/></svg><b>Before Nightfall</b><small>7 nights. One hearth. A few friends.</small></div>
         <div class="field">Rafi</div>
-        <button class="btn">Oda Kur</button>
-        <button class="btn sec"><svg class="i"><use href="#i-search"/></svg>Oda Ara</button>
-        <button class="btn sec">Kodla Katıl</button>
-        <div class="note">Açılımlar · <span class="spark"><svg class="i" style="width:14px;height:14px"><use href="#i-spark"/></svg>34 Kıvılcım</span></div>
+        <button class="btn">Create Room</button>
+        <button class="btn sec"><svg class="i"><use href="#i-search"/></svg>Find Room</button>
+        <button class="btn sec">Join with Code</button>
+        <div class="note">Unlocks · <span class="spark"><svg class="i" style="width:14px;height:14px"><use href="#i-spark"/></svg>34 Embers</span></div>
       </div>
     </div>
 
     <div class="screen panel">
-      <div class="screen-cap">2 · Oda ara</div>
+      <div class="screen-cap">2 · Find room</div>
       <div class="stack">
-        <div class="field ph"><svg class="i"><use href="#i-search"/></svg>Oda adı ara…</div>
-        <div class="room"><div class="nm">Rafi'nin Adası<small>Host: Rafi</small></div><span class="pill">2/4</span><span class="pill ok">Lobide</span><button class="btn small">Katıl</button></div>
-        <div class="room"><div class="nm">Gece Kuşları<small>Host: Deniz</small></div><span class="pill">3/4</span><span class="pill ok">Lobide</span><button class="btn small">Katıl</button></div>
-        <div class="room"><div class="nm">Pazar Akşamı<small>Host: Ece</small></div><span class="pill">1/4</span><span class="pill ok">Lobide</span><button class="btn small">Katıl</button></div>
-        <div class="room off"><div class="nm">AFK Yok<small>Host: Mert</small></div><span class="pill">4/4</span><span class="pill busy">Oyunda</span><button class="btn small dis">Katıl</button></div>
+        <div class="field ph"><svg class="i"><use href="#i-search"/></svg>Search room name…</div>
+        <div class="room"><div class="nm">Rafi's Island<small>Host: Rafi</small></div><span class="pill">2/4</span><span class="pill ok">In lobby</span><button class="btn small">Join</button></div>
+        <div class="room"><div class="nm">Night Owls<small>Host: Deniz</small></div><span class="pill">3/4</span><span class="pill ok">In lobby</span><button class="btn small">Join</button></div>
+        <div class="room"><div class="nm">Sunday Evening<small>Host: Ece</small></div><span class="pill">1/4</span><span class="pill ok">In lobby</span><button class="btn small">Join</button></div>
+        <div class="room off"><div class="nm">No AFK<small>Host: Mert</small></div><span class="pill">4/4</span><span class="pill busy">In game</span><button class="btn small dis">Join</button></div>
       </div>
     </div>
 
     <div class="screen panel">
-      <div class="screen-cap">3 · Lobi</div>
+      <div class="screen-cap">3 · Lobby</div>
       <div class="stack">
-        <div class="code"><div><small>ODA KODU</small><b>KXQT</b></div><button class="btn small sec"><svg class="i"><use href="#i-copy"/></svg>Linki kopyala</button></div>
+        <div class="code"><div><small>ROOM CODE</small><b>KXQT</b></div><button class="btn small sec"><svg class="i"><use href="#i-copy"/></svg>Copy link</button></div>
         <div class="slots">
-          <div class="slot"><div class="av" style="background:var(--red)">R</div><div class="nm">Rafi<small><svg class="i" style="width:13px;height:13px"><use href="#i-crown"/></svg>Host · Oduncu</small></div></div>
-          <div class="slot"><div class="av" style="background:var(--blue)">D</div><div class="nm">Deniz<small>Oduncu</small></div></div>
-          <div class="slot"><div class="av" style="background:var(--yellow)">E</div><div class="nm">Ece<small>Oduncu</small></div></div>
-          <div class="slot empty">Boş · linki paylaş</div>
+          <div class="slot"><div class="av" style="background:var(--red)">R</div><div class="nm">Rafi<small><svg class="i" style="width:13px;height:13px"><use href="#i-crown"/></svg>Host · Woodcutter</small></div></div>
+          <div class="slot"><div class="av" style="background:var(--blue)">D</div><div class="nm">Deniz<small>Woodcutter</small></div></div>
+          <div class="slot"><div class="av" style="background:var(--yellow)">E</div><div class="nm">Ece<small>Woodcutter</small></div></div>
+          <div class="slot empty">Empty · share the link</div>
         </div>
         <div class="chars">
-          <div class="char on">Oduncu<small>Seçili</small></div>
-          <div class="char lock">Okçu<small><svg class="i" style="width:11px;height:11px"><use href="#i-lock"/></svg>50</small></div>
-          <div class="char lock">Fenerci<small><svg class="i" style="width:11px;height:11px"><use href="#i-lock"/></svg>120</small></div>
+          <div class="char on">Woodcutter<small>Selected</small></div>
+          <div class="char lock">Archer<small><svg class="i" style="width:11px;height:11px"><use href="#i-lock"/></svg>50</small></div>
+          <div class="char lock">Lamplighter<small><svg class="i" style="width:11px;height:11px"><use href="#i-lock"/></svg>120</small></div>
         </div>
-        <button class="btn">Oyunu Başlat</button>
-        <div class="note">Sadece host başlatabilir</div>
+        <button class="btn">Start Game</button>
+        <div class="note">Only the host can start</div>
       </div>
     </div>
 
     <div class="screen panel" style="grid-column: span 2; min-width: 0">
-      <div class="screen-cap">4 · Oyun içi HUD (gece)</div>
+      <div class="screen-cap">4 · In-game HUD (night)</div>
       <div class="hud-frame"><div class="hud" id="hudMock"></div></div>
     </div>
 
     <div class="screen panel dawn">
-      <div class="screen-cap">5 · Şafak kartları</div>
-      <h3>Şafak söktü</h3>
-      <p>Takım bir geliştirme seçiyor · 3 oydan 2'si</p>
+      <div class="screen-cap">5 · Dawn Cards</div>
+      <h3>Dawn breaks</h3>
+      <p>The team picks an upgrade · 2 of 3 votes</p>
       <div class="cards">
-        <div class="card"><div class="ic"><svg><use href="#i-arrows"/></svg></div><b>Çift Ok</b><small>Kuleler iki ok atar</small><div class="votes"><i style="background:var(--blue)"></i></div></div>
-        <div class="card on"><div class="ic"><svg><use href="#i-axe"/></svg></div><b>Keskin Balta</b><small>Balta %30 hızlı</small><div class="votes"><i style="background:var(--red)"></i><i style="background:var(--yellow)"></i></div></div>
-        <div class="card"><div class="ic"><svg><use href="#i-halo"/></svg></div><b>Geniş Hale</b><small>Fener ışığı %40 geniş</small><div class="votes"></div></div>
+        <div class="card"><div class="ic"><svg><use href="#i-arrows"/></svg></div><b>Double Shot</b><small>Towers fire two arrows</small><div class="votes"><i style="background:var(--blue)"></i></div></div>
+        <div class="card on"><div class="ic"><svg><use href="#i-axe"/></svg></div><b>Keen Axe</b><small>Axe is 30% faster</small><div class="votes"><i style="background:var(--red)"></i><i style="background:var(--yellow)"></i></div></div>
+        <div class="card"><div class="ic"><svg><use href="#i-halo"/></svg></div><b>Wide Glow</b><small>Lantern light is 40% wider</small><div class="votes"></div></div>
       </div>
     </div>
   </div>
 </div>
 
 <div id="ovPal" class="overlay">
-  <h2 class="ov-title">Renk paleti</h2>
-  <p class="ov-sub">Tüm modeller bu tek paletten renk alır — tutarlılık ve tek materyal ile toplu çizim için.</p>
+  <h2 class="ov-title">Color palette</h2>
+  <p class="ov-sub">All models take their colors from this single palette — for consistency and batched drawing with one material.</p>
   <div id="palGroups"></div>
 </div>
 
 <template id="hudTpl">
   <div class="res"><span><svg class="i"><use href="#i-log"/></svg>42</span><span><svg class="i"><use href="#i-stone"/></svg>18</span></div>
-  <div class="night"><b><svg class="i"><use href="#i-moon"/></svg>Gece 3 / 7</b><small>Şafağa 0:48 · 23 yaratık kaldı</small><div class="track"><i></i></div></div>
+  <div class="night"><b><svg class="i"><use href="#i-moon"/></svg>Night 3 / 7</b><small>Dawn in 0:48 · 23 creatures left</small><div class="track"><i></i></div></div>
   <div class="pls">
     <div class="pl"><span class="av" style="background:var(--red)">R</span><div>Rafi<div class="hp"><i style="width:82%"></i></div></div></div>
     <div class="pl"><span class="av" style="background:var(--blue)">D</span><div>Deniz<div class="hp"><i style="width:46%"></i></div></div></div>
-    <div class="pl down"><span class="av" style="background:var(--yellow)">E</span><div>Ece · yerde!<div class="hp"><i style="width:100%"></i></div></div></div>
+    <div class="pl down"><span class="av" style="background:var(--yellow)">E</span><div>Ece · down!<div class="hp"><i style="width:100%"></i></div></div></div>
   </div>
-  <div class="alert">Ece'yi kaldır! (E basılı tut)</div>
+  <div class="alert">Revive Ece! (hold E)</div>
   <div class="hotbar">
-    <div class="bar-slot on"><em>1</em><svg><use href="#i-fence"/></svg><b>Çit</b><small><svg><use href="#i-log"/></svg>5</small></div>
-    <div class="bar-slot"><em>2</em><svg><use href="#i-tower"/></svg><b>Ok Kulesi</b><small><svg><use href="#i-log"/></svg>12 <svg><use href="#i-stone"/></svg>6</small></div>
-    <div class="bar-slot"><em>3</em><svg><use href="#i-lantern"/></svg><b>Fener</b><small><svg><use href="#i-log"/></svg>4 <svg><use href="#i-stone"/></svg>2</small></div>
+    <div class="bar-slot on"><em>1</em><svg><use href="#i-fence"/></svg><b>Fence</b><small><svg><use href="#i-log"/></svg>5</small></div>
+    <div class="bar-slot"><em>2</em><svg><use href="#i-tower"/></svg><b>Arrow Tower</b><small><svg><use href="#i-log"/></svg>12 <svg><use href="#i-stone"/></svg>6</small></div>
+    <div class="bar-slot"><em>3</em><svg><use href="#i-lantern"/></svg><b>Lantern</b><small><svg><use href="#i-log"/></svg>4 <svg><use href="#i-stone"/></svg>2</small></div>
   </div>
 </template>
 
@@ -379,11 +379,11 @@ const PAL = {
   p1: 0xE8604C, p2: 0x4C8FE8, p3: 0xF2C14E, p4: 0x6CC46A,
 };
 const PAL_GROUPS = [
-  ['Arazi', [['Kum', 'sand'], ['Koyu kum', 'sandDark'], ['Çimen koyu', 'grassDark'], ['Çimen', 'grass'], ['Çimen açık', 'grassLight'], ['Toprak', 'dirt'], ['Yar', 'cliff'], ['Yar koyu', 'cliffDark'], ['Sığ su', 'waterShallow'], ['Derin su', 'waterDeep'], ['Köpük', 'foam']]],
-  ['Doğa', [['Kaya', 'rock'], ['Kaya koyu', 'rockDark'], ['Yosun', 'moss'], ['Kabuk', 'bark'], ['Çam koyu', 'pineDark'], ['Çam', 'pineLight'], ['Yaprak', 'leaf'], ['Yaprak açık', 'leafLight'], ['Böğürtlen', 'berry']]],
-  ['Yapı', [['Ahşap', 'wood'], ['Ahşap açık', 'woodLight'], ['Ahşap koyu', 'woodDark'], ['Çatı', 'roof'], ['Metal', 'metal'], ['Kül', 'ash']]],
-  ['Karakter', [['Oyuncu 1', 'p1'], ['Oyuncu 2', 'p2'], ['Oyuncu 3', 'p3'], ['Oyuncu 4', 'p4'], ['Ten', 'skin'], ['Pantolon', 'pants'], ['Bot', 'boot'], ['Hasır', 'straw']]],
-  ['Gece & ışık', [['Gölgecik', 'shadow'], ['Göz ışığı', 'eyeGlow'], ['Böcek kabuğu', 'beetle'], ['Böcek ışığı', 'beetleGlow'], ['Kor', 'ember'], ['Alev', 'flame'], ['Alev çekirdeği', 'flameCore'], ['Fener', 'glowWarm']]],
+  ['Terrain', [['Sand', 'sand'], ['Dark sand', 'sandDark'], ['Dark grass', 'grassDark'], ['Grass', 'grass'], ['Light grass', 'grassLight'], ['Dirt', 'dirt'], ['Cliff', 'cliff'], ['Dark cliff', 'cliffDark'], ['Shallow water', 'waterShallow'], ['Deep water', 'waterDeep'], ['Foam', 'foam']]],
+  ['Nature', [['Rock', 'rock'], ['Dark rock', 'rockDark'], ['Moss', 'moss'], ['Bark', 'bark'], ['Dark pine', 'pineDark'], ['Pine', 'pineLight'], ['Leaf', 'leaf'], ['Light leaf', 'leafLight'], ['Berry', 'berry']]],
+  ['Structures', [['Wood', 'wood'], ['Light wood', 'woodLight'], ['Dark wood', 'woodDark'], ['Roof', 'roof'], ['Metal', 'metal'], ['Ash', 'ash']]],
+  ['Characters', [['Player 1', 'p1'], ['Player 2', 'p2'], ['Player 3', 'p3'], ['Player 4', 'p4'], ['Skin', 'skin'], ['Pants', 'pants'], ['Boots', 'boot'], ['Straw', 'straw']]],
+  ['Night & light', [['Shadeling', 'shadow'], ['Eye glow', 'eyeGlow'], ['Beetle shell', 'beetle'], ['Beetle glow', 'beetleGlow'], ['Ember', 'ember'], ['Flame', 'flame'], ['Flame core', 'flameCore'], ['Lantern', 'glowWarm']]],
 ];
 
 // ───────────────────────── math / noise ─────────────────────────
@@ -1084,16 +1084,16 @@ const reg = (o) => { if (o.userData.anim) animated.push(o); o.traverse(c => { if
 const occAt = (i, j) => (inGrid(i, j) ? occ[cidx(i, j)] : 'edge');
 const occupy = (cells, what) => cells.forEach(([i, j]) => { occ[cidx(i, j)] = what; });
 const OCAK_SAFE = 2.6;
-const ISSUE = { tree: 'Ağaç var — önce kes', rock: 'Kaya var — önce kır', bush: 'Çalı var — önce temizle', fence: 'Dolu', building: 'Dolu' };
+const ISSUE = { tree: 'Tree here — chop it first', rock: 'Rock here — break it first', bush: 'Bush here — clear it first', fence: 'Occupied', building: 'Occupied' };
 function cellIssue(i, j, needLevel) {
-  if (!inGrid(i, j)) return 'Harita dışı';
+  if (!inGrid(i, j)) return 'Off map';
   const c = cidx(i, j), L = level[c];
-  if (L === WATER) return 'Su';
-  if (dWater[c] < 2) return 'Kumsal — dalga çizgisi';
-  if (ramp[c]) return 'Rampa — yol açık kalmalı';
-  const [x, z] = cellCenter(i, j); if (Math.hypot(x, z) < OCAK_SAFE) return 'Ocak alanı';
-  if (occ[c]) return ISSUE[occ[c]] || 'Dolu';
-  if (needLevel !== undefined && L !== needLevel) return 'Farklı kat — yar kenarı';
+  if (L === WATER) return 'Water';
+  if (dWater[c] < 2) return 'Beach — surf line';
+  if (ramp[c]) return 'Ramp — keep the path clear';
+  const [x, z] = cellCenter(i, j); if (Math.hypot(x, z) < OCAK_SAFE) return 'Hearth area';
+  if (occ[c]) return ISSUE[occ[c]] || 'Occupied';
+  if (needLevel !== undefined && L !== needLevel) return 'Different level — cliff edge';
   return null;
 }
 function randomFreeCell(rand, { minR = 7.5, maxR = ISLAND_R - 2, gap = 1 } = {}) {
@@ -1270,7 +1270,7 @@ updaters.push((t, dt) => {
 });
 
 // build mode: hover shows the footprint green/red with the reason; fences drag into straight lines
-const BUILD = { fence: { name: 'Çit', cost: '5 odun / hücre' }, tower: { name: 'Ok Kulesi', cost: '12 odun · 6 taş' }, lantern: { name: 'Fener', cost: '4 odun · 2 taş' } };
+const BUILD = { fence: { name: 'Fence', cost: '5 wood / cell' }, tower: { name: 'Arrow Tower', cost: '12 wood · 6 stone' }, lantern: { name: 'Lantern', cost: '4 wood · 2 stone' } };
 let buildOn = false, buildKind = 'fence', dragStart = null, hoverPt = null, buildRot = 0; // rotation in quarter turns
 const ghost = new THREE.Group(); island.add(ghost);
 const okMat = new THREE.MeshBasicMaterial({ color: 0x6CE07A, transparent: true, opacity: 0.42, depthWrite: false });
@@ -1310,7 +1310,7 @@ function drawGhost() {
   }
   const bad = cells.find(c => c.issue), okCount = cells.filter(c => !c.issue).length;
   tip.innerHTML = bad && buildKind !== 'fence' ? `<span style="color:#ff9b8b">${bad.issue}</span>`
-    : bad ? `${okCount} hücre konur · <span style="color:#ff9b8b">${cells.length - okCount} engelli: ${bad.issue}</span>`
+    : bad ? `${okCount} cells placed · <span style="color:#ff9b8b">${cells.length - okCount} blocked: ${bad.issue}</span>`
     : `${BUILD[buildKind].name} · ${BUILD[buildKind].cost}`;
   tip.style.display = 'flex';
 }
@@ -1351,15 +1351,15 @@ addEventListener('keydown', (e) => {
 });
 function renderBuildBar() {
   document.getElementById('buildBar').innerHTML = Object.entries(BUILD).map(([k, b], n) =>
-    `<button class="chip${k === buildKind ? ' on' : ''}" data-kind="${k}"><b>${n + 1}</b>${b.name}</button>`).join('') + '<span class="bb-hint">Çit: sürükle · R: döndür · Esc: iptal</span>';
+    `<button class="chip${k === buildKind ? ' on' : ''}" data-kind="${k}"><b>${n + 1}</b>${b.name}</button>`).join('') + '<span class="bb-hint">Fence: drag · R: rotate · Esc: cancel</span>';
   document.querySelectorAll('#buildBar [data-kind]').forEach(b => b.addEventListener('click', () => { buildKind = b.dataset.kind; renderBuildBar(); }));
 }
 function setBuild(on) {
   buildOn = on; gridLines.visible = on; controls.enableRotate = !on; dragStart = null;
   document.getElementById('buildBar').style.display = on ? 'flex' : 'none';
   document.getElementById('noteText').innerHTML = on
-    ? '<b>Yerleştirme kuralları</b>Bina sadece <u>aynı kattaki</u> boş hücrelere konur. Ağaç, kaya ve çalı önce temizlenir. Rampalar, kumsal ve Ocak çevresi kapalı. <b style="display:inline;font-size:inherit">R</b> ile 90° döndür. Tepelerin yarları yürünmez; çıkış açık renkli rampadan.'
-    : '<b>Kaynak döngüsü</b>Ağaç ve taş sayısı sabit. Biri bitince adada rastgele boş bir hücrede yenisi büyür. Oduncu en yakın ağaca yol bularak yürür.';
+    ? '<b>Build mode rules</b>Buildings can only go on empty cells <u>on the same level</u>. Trees, rocks and bushes must be cleared first. Ramps, beaches and the area around the Hearth are off limits. Press <b style="display:inline;font-size:inherit">R</b> to rotate 90°. Cliff faces are not walkable; use the light-colored ramp to climb.'
+    : '<b>Resource loop</b>The number of trees and rocks stays fixed. When one runs out, a new one grows in a random empty cell on the island. The Woodcutter paths to the nearest tree.';
   renderBuildBar(); drawGhost();
 }
 // walkers & idlers
@@ -1418,24 +1418,24 @@ const showcase = new THREE.Group(); showcase.position.x = SHOW_X; scene.add(show
   floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; showcase.add(floor);
 }
 const SHOW = [
-  ['Oduncu', 'Kırmızı · bere', () => { const v = makeVillager({ color: PAL.p1, hat: 'beanie', seed: 1 }); v.userData.state = 'walk'; return v; }],
-  ['Oduncu', 'Mavi · hasır şapka', () => { const v = makeVillager({ color: PAL.p2, hat: 'straw', seed: 2, carry: true }); return v; }],
-  ['Oduncu', 'Sarı · bandana', () => { const v = makeVillager({ color: PAL.p3, hat: 'bandana', seed: 3 }); v.userData.state = 'chop'; return v; }],
-  ['Oduncu', 'Yeşil · çizgili bere', () => { const v = makeVillager({ color: PAL.p4, hat: 'beanie2', seed: 4 }); v.userData.state = 'wave'; return v; }],
-  ['Gölgecik', 'Yaratık · hızlı, sürü', () => makeGolgecik(7)],
-  ['Kütük', 'Yaratık · binalara saldırır', () => makeKutuk(8)],
-  ['Fenerböceği', 'Yaratık · ışığa koşar', () => makeFenerbocegi(9)],
-  ['Ocak', 'Yapı · kalbiniz', () => makeOcak()],
-  ['Ok Kulesi', 'Yapı · otomatik atış', () => makeTower(PAL.p2)],
-  ['Fener', 'Yapı · ışık alanı', () => makeLantern()],
-  ['Çit', 'Yapı · hücre başına, birleşir', () => { const g = new THREE.Group(); [[1, -0.9, 0], [3, 0, 0], [6, 0.9, 0], [8, 0.9, 0.9]].forEach(([m, x, z], n) => { const f = makeFenceCell(m, n); f.position.set(x, 0, z); g.add(f); }); return g; }],
-  ['Çam', 'Doğa · odun', () => makePine(3, 1)],
-  ['Meşe', 'Doğa · odun', () => makeOak(5, 1)],
-  ['Çalı', 'Doğa · süs', () => makeBush(2)],
-  ['Kaya', 'Doğa · taş', () => makeRock(4, 0.8)],
-  ['Odun yığını', 'Kaynak', () => makeWoodPile()],
-  ['Taş yığını', 'Kaynak', () => makeStonePile()],
-  ['Bulut', 'Atmosfer', () => { const c = makeCloud(210); c.scale.setScalar(0.6); c.position.y = 1.4; const g = new THREE.Group(); g.add(c); return g; }],
+  ['Woodcutter', 'Red · beanie', () => { const v = makeVillager({ color: PAL.p1, hat: 'beanie', seed: 1 }); v.userData.state = 'walk'; return v; }],
+  ['Woodcutter', 'Blue · straw hat', () => { const v = makeVillager({ color: PAL.p2, hat: 'straw', seed: 2, carry: true }); return v; }],
+  ['Woodcutter', 'Yellow · bandana', () => { const v = makeVillager({ color: PAL.p3, hat: 'bandana', seed: 3 }); v.userData.state = 'chop'; return v; }],
+  ['Woodcutter', 'Green · striped beanie', () => { const v = makeVillager({ color: PAL.p4, hat: 'beanie2', seed: 4 }); v.userData.state = 'wave'; return v; }],
+  ['Shadeling', 'Creature · fast, swarms', () => makeGolgecik(7)],
+  ['Stumpkin', 'Creature · attacks buildings', () => makeKutuk(8)],
+  ['Glowbug', 'Creature · rushes the light', () => makeFenerbocegi(9)],
+  ['The Hearth', 'Structure · your heart', () => makeOcak()],
+  ['Arrow Tower', 'Structure · auto-fire', () => makeTower(PAL.p2)],
+  ['Lantern', 'Structure · light radius', () => makeLantern()],
+  ['Fence', 'Structure · per cell, connects', () => { const g = new THREE.Group(); [[1, -0.9, 0], [3, 0, 0], [6, 0.9, 0], [8, 0.9, 0.9]].forEach(([m, x, z], n) => { const f = makeFenceCell(m, n); f.position.set(x, 0, z); g.add(f); }); return g; }],
+  ['Pine', 'Nature · wood', () => makePine(3, 1)],
+  ['Oak', 'Nature · wood', () => makeOak(5, 1)],
+  ['Bush', 'Nature · decor', () => makeBush(2)],
+  ['Rock', 'Nature · stone', () => makeRock(4, 0.8)],
+  ['Wood pile', 'Resource', () => makeWoodPile()],
+  ['Stone pile', 'Resource', () => makeStonePile()],
+  ['Cloud', 'Atmosphere', () => { const c = makeCloud(210); c.scale.setScalar(0.6); c.position.y = 1.4; const g = new THREE.Group(); g.add(c); return g; }],
 ];
 const COLS = 5, SP = 5.4, ROW_SP = 6.2, RIGHT = new THREE.Vector3(1, 0, -1).normalize(), DOWN = new THREE.Vector3(1, 0, 1).normalize();
 const turntables = [];
@@ -1449,7 +1449,7 @@ SHOW.forEach(([name, sub, fn], i) => {
   let tris = 0; obj.traverse(o => { if (o.isMesh && o.geometry) tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3 * (o.isInstancedMesh ? o.count : 1); });
   turntables.push({ tt, speed: 0.25 + (i % 3) * 0.04 });
   const div = document.createElement('div'); div.className = 'lbl';
-  div.innerHTML = `${name}<small>${sub} · ${(tris / 1000).toFixed(1)}k üçgen</small>`;
+  div.innerHTML = `${name}<small>${sub} · ${(tris / 1000).toFixed(1)}k tris</small>`;
   const lbl = new CSS2DObject(div); lbl.position.set(1.45, 0, 1.45); ped.add(lbl);
 });
 updaters.push((t, dt) => turntables.forEach(o => { o.tt.rotation.y += dt * o.speed; }));
@@ -1491,7 +1491,7 @@ function applyTime(t) {
   emissiveNight.forEach(({ mat, day: d, night: n }) => { mat.emissiveIntensity = lerp(d, n, night); });
   bloom.strength = lerp(0.3, 0.85, night);
   const hh = Math.floor(t * 24), mm = Math.floor((t * 24 - hh) * 60);
-  const phase = night > 0.7 ? 'Gece' : t < 0.5 && night > 0.05 ? 'Şafak' : night > 0.05 ? 'Gün batımı' : 'Gündüz';
+  const phase = night > 0.7 ? 'Night' : t < 0.5 && night > 0.05 ? 'Dawn' : night > 0.05 ? 'Sunset' : 'Day';
   document.getElementById('todLabel').textContent = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')} · ${phase}`;
 }
 
