@@ -2,28 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { BUILDINGS } from '../src/content/buildings';
 import { CREATURES, SEPARATION } from '../src/content/creatures';
 import { PLAYER } from '../src/content/player';
-import { refreshFlow } from '../src/flow';
 import { cellIndexAt, cellOf } from '../src/grid';
 import { addBuilding, createGame, ids, spawnCreature } from '../src/state';
 import { step } from '../src/step';
 import { removeBuilding } from '../src/systems/combat';
 import { inLanternLight, updateCreatures } from '../src/systems/creatures';
-import { spawnCells, updateWaves } from '../src/systems/waves';
-import type { PlayerInput, SimEvent } from '../src/types';
+import { spawnCells } from '../src/systems/waves';
+import type { SimEvent } from '../src/types';
 import { cellCenter, cellCoords } from '../src/grid';
-
-const stepWith = (s: ReturnType<typeof createGame>, inputs: PlayerInput[] = []) => {
-  const r = step(s, inputs);
-  if (s.flowDirty) refreshFlow(s);
-  updateWaves(s, r.events);
-  updateCreatures(s, r.events);
-  if (s.flowDirty) refreshFlow(s);
-  return r;
-};
 
 const run = (s: ReturnType<typeof createGame>, n: number) => {
   const all: SimEvent[] = [];
-  for (let k = 0; k < n; k++) all.push(...stepWith(s, []).events);
+  for (let k = 0; k < n; k++) all.push(...step(s, []).events);
   return all;
 };
 /** Hearth'tan uzak, Hearth'a yolu olan bir kıyı hücresinin merkezi (gerçek doğma noktası). */
@@ -110,7 +100,7 @@ describe('Shadeling', () => {
     const minD = PLAYER.radius + CREATURES.stumpkin.radius;
     const z0 = p.z;
     for (let k = 0; k < 30; k++) {
-      stepWith(s, [{ playerId: pid, move: { x: 1, z: 0 }, aim: null, attack: false, place: null }]);
+      step(s, [{ playerId: pid, move: { x: 1, z: 0 }, aim: null, attack: false, place: null }]);
       expect(Math.hypot(p.x - st.x, p.z - st.z)).toBeGreaterThanOrEqual(minD - 1e-6);
       expect(Number.isFinite(p.x) && Number.isFinite(st.x)).toBe(true);
     }
@@ -167,7 +157,7 @@ describe('fener etkisi ve ayrışma', () => {
     for (let k = 0; k < 10; k++) {
       const a = { x: lit.x, z: lit.z };
       const b = { x: dark.x, z: dark.z };
-      stepWith(s, []);
+      step(s, []);
       litPath += Math.hypot(lit.x - a.x, lit.z - a.z);
       darkPath += Math.hypot(dark.x - b.x, dark.z - b.z);
     }

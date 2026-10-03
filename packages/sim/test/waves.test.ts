@@ -1,21 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { SPAWN_MIN_DIST_FROM_HEARTH } from '../src/content/waves';
 import { cellOf, cidx } from '../src/grid';
-import { refreshFlow } from '../src/flow';
 import { createGame, ids } from '../src/state';
 import { step } from '../src/step';
-import { updateCreatures } from '../src/systems/creatures';
-import { spawnCells, updateWaves, waveCounts } from '../src/systems/waves';
-import { type PlayerInput, UNREACHABLE } from '../src/types';
-
-const stepWith = (s: ReturnType<typeof createGame>, inputs: PlayerInput[] = []) => {
-  const r = step(s, inputs);
-  if (s.flowDirty) refreshFlow(s);
-  updateWaves(s, r.events);
-  updateCreatures(s, r.events);
-  if (s.flowDirty) refreshFlow(s);
-  return r;
-};
+import { spawnCells, waveCounts } from '../src/systems/waves';
+import { UNREACHABLE } from '../src/types';
 
 const counts = (s: ReturnType<typeof createGame>) => {
   const c = { shadeling: 0, stumpkin: 0, glowbug: 0 };
@@ -30,16 +19,16 @@ describe('dalgalar', () => {
   it('gece 1: 0/25/50. sn dalgaları 6-0-1, 4-1-1, 6-1-2 doğurur', () => {
     const s = createGame(1);
     skipToNight(s);
-    const { events } = stepWith(s, []);
+    const { events } = step(s, []);
     expect(s.phase).toBe('night');
     expect(counts(s)).toEqual({ shadeling: 6, stumpkin: 0, glowbug: 1 });
     expect(events.filter((e) => e.t === 'creatureSpawned')).toHaveLength(7);
     expect(s.wavesSpawned).toBe(1);
     for (const id of ids(s.creatures)) delete s.creatures[id];
-    for (let k = 0; k < 500; k++) stepWith(s, []);
+    for (let k = 0; k < 500; k++) step(s, []);
     expect(counts(s)).toEqual({ shadeling: 4, stumpkin: 1, glowbug: 1 });
     for (const id of ids(s.creatures)) delete s.creatures[id];
-    for (let k = 0; k < 500; k++) stepWith(s, []);
+    for (let k = 0; k < 500; k++) step(s, []);
     expect(counts(s)).toEqual({ shadeling: 6, stumpkin: 1, glowbug: 2 });
     expect(s.wavesSpawned).toBe(3);
   });
@@ -52,7 +41,7 @@ describe('dalgalar', () => {
       expect(s.flow.hearth.dist[c]).toBeLessThan(UNREACHABLE);
     }
     skipToNight(s);
-    stepWith(s, []);
+    step(s, []);
     for (const id of ids(s.creatures)) {
       const c = s.creatures[id]!;
       expect(Math.hypot(c.x, c.z)).toBeGreaterThanOrEqual(SPAWN_MIN_DIST_FROM_HEARTH - 0.5);
@@ -78,7 +67,7 @@ describe('dalgalar', () => {
   });
   it('gündüz dalga yok', () => {
     const s = createGame(1);
-    for (let k = 0; k < 100; k++) stepWith(s, []);
+    for (let k = 0; k < 100; k++) step(s, []);
     expect(counts(s)).toEqual({ shadeling: 0, stumpkin: 0, glowbug: 0 });
   });
 });
