@@ -19,7 +19,7 @@ export function createScene(canvas: HTMLCanvasElement): GameScene {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   renderer.toneMapping = THREE.NeutralToneMapping;
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x8fd0f2);
@@ -33,6 +33,7 @@ export function createScene(canvas: HTMLCanvasElement): GameScene {
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
   Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16 });
+  sun.shadow.camera.updateProjectionMatrix();
   scene.add(sun);
 
   const ground = new THREE.Mesh(
