@@ -1,15 +1,16 @@
 import { builtinModules } from 'node:module';
 import js from '@eslint/js';
+import { defineConfig } from 'eslint/config';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
-const WORKSPACE = ['@gg/sim', '@gg/protocol', '@gg/client', '@gg/server', '@gg/devtools'];
+const WORKSPACE = ['@gg/sim', '@gg/protocol', '@gg/client', '@gg/server', '@gg/devtools', '@gg/assets'];
 const NODE_BUILTINS = builtinModules.flatMap((m) => [m, `${m}/*`]);
 // Gitignore tarzı desenler './net' gibi göreli yolları 'net' sanır; göreli yolları hariç tut.
 const RELATIVE_OK = ['!./*', '!../*', '!./**', '!../**'];
 const restrict = (group, message) => ['error', { patterns: [{ group, message }] }];
 
-export default tseslint.config(
+export default defineConfig(
   {
     ignores: [
       '**/dist/**',
@@ -22,9 +23,19 @@ export default tseslint.config(
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
-  { languageOptions: { globals: { ...globals.node } } },
+  // Node globalleri yalnızca Node'da koşan dosyalarda (M0 backlog).
   {
-    files: ['packages/client/**', 'packages/devtools/**', 'tests/e2e/**', 'tests/e2e-prod/**'],
+    files: ['packages/server/**', 'tests/**', '*.config.ts', 'eslint.config.js', 'packages/*/vite.config.ts'],
+    languageOptions: { globals: { ...globals.node } },
+  },
+  {
+    files: [
+      'packages/client/**',
+      'packages/devtools/**',
+      'packages/assets/**',
+      'tests/e2e/**',
+      'tests/e2e-prod/**',
+    ],
     languageOptions: { globals: { ...globals.browser } },
   },
   {
@@ -48,8 +59,35 @@ export default tseslint.config(
           message: 'sim duvar saatine erişemez; tick sayacını kullan.',
         },
         { object: 'globalThis', property: 'performance', message: 'sim duvar saatine erişemez.' },
+        { object: 'globalThis', property: 'process', message: 'sim Node ortamına erişemez.' },
       ],
-      'no-restricted-globals': ['error', 'window', 'document', 'performance', 'Date'],
+      // typescript-eslint recommended TS'te no-undef'i kapatır; DOM ve Node globalleri hedefli yasaklanır.
+      'no-restricted-globals': [
+        'error',
+        'window',
+        'document',
+        'performance',
+        'Date',
+        'process',
+        'Buffer',
+        'global',
+        'require',
+        'module',
+        '__dirname',
+        '__filename',
+        'setTimeout',
+        'setInterval',
+      ],
+    },
+  },
+  {
+    // İzin listesi: yalnızca three, three/* ve paket içi göreli yollar. (Paket dışına çıkan göreli yollar M0 kararıyla kapsam dışı.)
+    files: ['packages/assets/src/**/*.ts'],
+    rules: {
+      'no-restricted-imports': restrict(
+        ['*', '*/**', '!three', '!three/**', ...RELATIVE_OK, '!.', '!..'],
+        'assets yalnızca three paketine ve kendi dosyalarına bağlı olabilir.',
+      ),
     },
   },
   {
@@ -96,7 +134,7 @@ export default tseslint.config(
     files: ['packages/server/src/**/*.ts'],
     rules: {
       'no-restricted-imports': restrict(
-        ['@gg/client', 'three', 'three/*'],
+        ['@gg/client', '@gg/assets', 'three', 'three/*'],
         'server render koduna bağlanamaz.',
       ),
     },
@@ -105,7 +143,7 @@ export default tseslint.config(
     files: ['packages/devtools/src/**/*.ts'],
     rules: {
       'no-restricted-imports': restrict(
-        ['@gg/server', '@gg/client', 'node:*', ...NODE_BUILTINS, ...RELATIVE_OK],
+        ['@gg/server', '@gg/client', '@gg/assets', 'node:*', ...NODE_BUILTINS, ...RELATIVE_OK],
         'devtools client/server içine takılır, onlara ve Node modüllerine bağımlı olmaz.',
       ),
     },
