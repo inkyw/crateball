@@ -51,10 +51,29 @@ gamepad, birden fazla harita tipi, boss, sohbet, hile koruması, P2P/host-taray�
 Lobi → [Gündüz 90 sn → Gece ~75 sn → Şafak kartı 15 sn] × 7 → Sonuç ekranı → Lobi
 ```
 
-- **Ada:** Her run için seed'li prosedürel üretim; yarıçap ~22 birim, teraslı arazi,
-  kumsal, ortada düz **meydan** ve **Ocak**. Run seed'i lobide gösterilir (debug için).
+- **Ada:** Her run için seed'li prosedürel üretim; yarıçap ~22 birim, ortada düz **meydan** ve **Ocak**
+  (bkz. 3.1.1). Run seed'i lobide gösterilir (debug için).
 - **Kaybetme:** Ocak'ın canı 0 olursa run biter.
 - **Kazanma:** 7. gecenin sonunda Ocak ayaktaysa.
+
+### 3.1.1 Arazi ve yerleşim kuralları
+
+- **Izgara tek gerçek kaynaktır.** Dünya 1×1 birimlik hücrelerden oluşur. Her hücrenin bir **katı** vardır:
+  su, 0 (kumsal), 1 (çayır), 2 (yayla); en fazla 3 kara katı. 3D arazi mesh'i bu ızgaradan üretilir;
+  görülen yarlar sadece hücre kenarlarındadır, yani görüntü ile kurallar birebir aynıdır.
+- Üretim: sürekli gürültü alanından kat seçimi → çoğunluk filtresi (lekesiz bölgeler) → kıyı her zaman
+  kumsal, komşu hücreler arasında en fazla 1 kat fark → her yükseltinin çevresine 1–4 adet, 3 hücre genişliğinde
+  **rampa** (bölge büyüklüğüne göre, çevresine yayılmış). Meydan (yarıçap ~7) daima kat 1.
+- **Hareket:** Aynı kattaki komşu hücreler arası serbest; **yarlar yürünmez**; katlar arası geçiş sadece
+  rampalardan, rampanın yönünde. Oyuncu, yaratık ve yol bulma aynı kuralı kullanır. Rampalar haritada açık
+  renkli patika olarak görünür (okunabilirlik).
+- **Bina yerleştirme:** Bina ayak izindeki tüm hücreler **aynı katta** ve boş olmalı. Kapalı hücreler: su,
+  ıslak kum (suya < 2 hücre), rampa, Ocak çevresi (yarıçap ~2.6), ağaç/kaya/çalı/bina olan hücre.
+  Ağaç ve kaya önce kesilir/kırılır ("alan açma"). Çitler tek tek hücre bazlı olduğu için katlar arasında
+  devam edebilir; kule ve fener tek kat.
+- **Yerleştirme arayüzü:** İnşa modunda ızgara çizgileri görünür; ayak izi hücreleri yeşil/kırmızı yanar ve
+  imleç yanında neden yazar ("Ağaç var — önce kes", "Farklı kat — yar kenarı", "Rampa — yol açık kalmalı"
+  vb.). Çit: tıkla-sürükle ile düz hat; engelli hücreler atlanır.
 
 ### 3.2 Oyuncu
 
@@ -69,8 +88,9 @@ Lobi → [Gündüz 90 sn → Gece ~75 sn → Şafak kartı 15 sn] × 7 → Sonu�
 ### 3.3 Kaynaklar
 
 - Haritada **sabit sayıda kaynak noktası**: başlangıç değeri 14 ağaç, 8 kaya.
-- Bir nokta tükenince (ağaç devrilir / kaya kırılır) haritada **rastgele, geçerli bir boş yerde** yenisi büyür:
-  seed'li RNG (replay'de aynı yer), Ocak'a/binalara/diğer kaynaklara minimum mesafe, eğimli/sığ zeminde değil.
+- Bir nokta tükenince (ağaç devrilir / kaya kırılır) haritada **rastgele, boş ve inşa edilebilir bir hücrede**
+  yenisi büyür: seed'li RNG (replay'de aynı yer), Ocak'tan en az ~7.5 birim uzak, etrafındaki 8 hücre boş
+  ve rampa değil.
 - Başlangıç verimi: ağaç 4 vuruşta devrilir → 3 odun; kaya 4 vuruşta kırılır → 2 taş.
 
 ### 3.4 Binalar (v1)
@@ -148,7 +168,7 @@ game/
 - Determinizm: Seed'li PRNG (Math.random yasak — lint kuralı), tick sayacı ile zaman, nesne
   iterasyon sırası sabit (id sıralı). Aynı seed + aynı girdi dizisi → aynı state hash.
 - Durum: düz, serileştirilebilir veri (sınıf yok/az). Varlıklar id'li tablolar.
-- Sistemler: hareket+çarpışma, saldırı/hasar, kaynak toplama+yeniden doğma, inşa, gün/gece zamanlayıcı,
+- Sistemler: ada/ızgara üretimi (3.1.1), hareket+çarpışma (yar/rampa kuralı), saldırı/hasar, kaynak toplama+yeniden doğma, inşa, gün/gece zamanlayıcı,
   dalga üretimi, flow field + yaratık AI, kule/fener etkileri, düşme/kaldırma, şafak oylaması, run sonu.
 - Hareket fonksiyonu istemci tahmini için ayrı ve saf olarak export edilir.
 
@@ -192,7 +212,8 @@ Onaylı referans: `prototypes/asset-kit/index.html`.
   gürültüyle bozulmuş ikosahedron, ekstrüzyon) + seed'li varyasyon. Doku yok; renkler tek paletten.
 - Ortam modelleri düz gölgeli (faceted), karakterler yumuşak gölgeli "oyuncak" oranlarında.
 - Animasyon: kemiksiz, parça döndürme ile (yürüme, vuruş, el sallama, zıplama/ezilme).
-- Arazi: teraslı yükseklik alanı, yüz bazlı renk (kum/çimen/yar/toprak), sığ-derin su + kıyı köpüğü shader'ı.
+- Arazi: ızgara kat haritasından üretilen mesh (hücre başına 4×4 alt bölüm, kenarlarda hafif organik bozulma),
+  yüz bazlı renk (kum/çimen/yayla/yar şeritleri/rampa patikası/meydan toprağı), sığ-derin su + kıyı köpüğü shader'ı.
 - Işık: tek gölge atan yönlü ışık (güneş/ay), yarım küre ışığı, gün saatinden türeyen renk anahtarları.
   Gece fenerleri prod'da **sahte ışık** (zemin halesi + emissive + bloom); gerçek nokta ışığı en fazla
   Ocak + birkaç tane.
@@ -266,20 +287,22 @@ Prototip kit bilinçli olarak optimize edilmedi (~2500 çizim çağrısı); büt
 
 ## 9. Dağıtım
 
-- Dockerfile: istemci build + sunucu tek imajda. Fly.io tek makine (küçük boyut), `/health` kontrolü.
-- `pnpm deploy` → `fly deploy`. Ortam: `NODE_ENV`, `LOG_LEVEL`, `PUBLIC_URL`.
-- Ön koşullar (henüz kurulu değil): pnpm (corepack), flyctl, Fly hesabı (kullanıcı oluşturur).
+- Dockerfile: istemci build + sunucu tek imajda, `/health` kontrolü. M0'dan itibaren `pnpm docker:prod`
+  ile prod imajı **yerelde Docker'da** çalıştırılıp test edilir (Docker Desktop kurulu).
+- Dağıtım hedefi M5'te kesinleşir; varsayılan Fly.io (o aşamada flyctl kurulur). Imaj taşınabilir olduğu
+  için AWS/VPS de mümkün. Ortam: `NODE_ENV`, `LOG_LEVEL`, `PUBLIC_URL`.
+- Ön koşullar: pnpm (corepack ile, M0'ın ilk adımı). Node 24 ve Docker kurulu.
 
 ## 10. Aşamalar (her biri ayrı uygulama planı)
 
 | Aşama | İçerik | Bitti sayılır |
 |---|---|---|
-| **M0 Temel** | Monorepo, TS/ESLint/Prettier, Vitest, Playwright, `pnpm dev`/`verify`, log köprüsü, `window.__game` iskeleti, boş sahne servis eden sunucu, CLAUDE.md | `pnpm verify` yeşil; tarayıcıda boş sahne + debug paneli |
-| **M1 Tek oyunculu çekirdek** | Sim: hareket/çarpışma, toplama + kaynak yeniden doğma, inşa, gün/gece, yaratıklar + flow field, Ocak; render (kit'ten taşınan assetler, instancing), HUD, debug araçları | Tek başına 1 gece oynanabilir; bütçe sahnesi testi var |
+| **M0 Temel** | Monorepo, TS/ESLint/Prettier, Vitest, Playwright, `pnpm dev`/`verify`, log köprüsü, `window.__game` iskeleti, boş sahne servis eden sunucu, Dockerfile + yerel prod testi, CLAUDE.md | `pnpm verify` yeşil; tarayıcıda boş sahne + debug paneli; Docker imajı yerelde açılıyor |
+| **M1 Tek oyunculu çekirdek** | Sim: ızgara/ada üretimi, hareket/çarpışma (yar/rampa), toplama + kaynak yeniden doğma, inşa, gün/gece, yaratıklar + flow field, Ocak; render (kit'ten taşınan assetler, instancing), HUD, debug araçları | Tek başına 1 gece oynanabilir; bütçe sahnesi testi var |
 | **M2 Multiplayer** | Sunucu odaları, menü/oda ara/lobi akışı, tahmin + interpolasyon, gecikme simülatörü, kopma-dönme | 4 tarayıcılı e2e yeşil; 150 ms'de akıcı |
 | **M3 Run döngüsü** | 7 gece, şafak kartları + oylama, düşme/kaldırma, sonuç ekranı, replay + F9, bot/denge aracı, oyun hissi (vuruş sallanması, partiküller, hasar sayıları) | Uçtan uca run oynanır; replay hatayı yeniden üretir |
 | **M4 Meta ve içerik** | Kıvılcım, Okçu/Fenerci, kalite ön ayarları, ses efektleri | Açılımlar çalışır; düşük ayarda bütçe tutar |
-| **M5 Yayın** | Fly.io deploy, perf geçişi, arkadaşlarla playtest | Link dışarıdan çalışır; playtest notları |
+| **M5 Yayın** | Dağıtım hedefi seçimi (varsayılan Fly.io) + deploy, perf geçişi, arkadaşlarla playtest | Link dışarıdan çalışır; playtest notları |
 
 ## 11. Açık konular (uygulamayı engellemez)
 

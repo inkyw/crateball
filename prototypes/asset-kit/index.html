@@ -165,6 +165,13 @@
   #note { position: fixed; left: 14px; bottom: 16px; width: 270px; padding: 12px 14px; z-index: 20; font-size: 12.5px; font-weight: 700; color: var(--muted); line-height: 1.45; }
   #note b { display: block; font-family: 'Baloo 2'; font-weight: 600; font-size: 14px; color: var(--ember-l); margin-bottom: 3px; }
   @media (max-width: 1350px) { #note { display: none !important; } }
+  #buildBar { position: fixed; top: 82px; left: 50%; transform: translateX(-50%); display: none; gap: 8px; align-items: center; padding: 8px 10px; z-index: 20; }
+  #buildBar .chip b { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 5px; background: rgba(255,255,255,.12); font-size: 11px; }
+  #buildBar .chip.on { background: var(--ember); color: #3a1a06; }
+  #buildBar .chip.on b { background: rgba(0,0,0,.15); }
+  .bb-hint { color: var(--muted); font-size: 12px; font-weight: 700; padding: 0 4px; }
+  .build-tip { font-size: 14px; transform: translate(-50%, -110%); }
+  #note u { text-decoration-color: var(--ember); }
   /* palette */
   .pal-group { margin-bottom: 22px; }
   .pal-group h3 { font-family: 'Baloo 2'; font-weight: 600; margin: 0 0 10px; font-size: 16px; color: var(--ember-l); }
@@ -229,6 +236,7 @@
   <div class="tog on" data-k="bloom"><span>Parlama<small>Bloom · ateş, gözler, fener</small></span><i class="sw"></i></div>
   <div class="tog on" data-k="tilt"><span>Minyatür odak<small>Tilt-shift · diorama hissi</small></span><i class="sw"></i></div>
   <div class="tog on" data-k="shadows"><span>Gölgeler<small>Güneş / ay, yumuşak</small></span><i class="sw"></i></div>
+  <div class="tog" data-k="build"><span>Yerleştirme modu<small>Izgara · 1 Çit · 2 Kule · 3 Fener</small></span><i class="sw"></i></div>
   <div class="tog" data-k="hud"><span>HUD önizleme<small>Oyun içi arayüz</small></span><i class="sw"></i></div>
   <div class="stats">
     <div class="stat"><b id="sFps">–</b><small>FPS</small></div>
@@ -247,7 +255,8 @@
   <span id="todLabel">10:05 · Gündüz</span>
 </div>
 
-<div id="note" class="panel"><b>Kaynak döngüsü</b>Ağaç ve taş sayısı sabit. Biri bitince adada rastgele boş bir yerde yenisi büyür — oduncu yenisine yürür.</div>
+<div id="note" class="panel"><div id="noteText"><b>Kaynak döngüsü</b>Ağaç ve taş sayısı sabit. Biri bitince adada rastgele boş bir hücrede yenisi büyür. Oduncu en yakın ağaca yarları dolaşıp rampadan yürür.</div></div>
+<div id="buildBar" class="panel"></div>
 
 <!-- live HUD over diorama -->
 <div id="hudLive"></div>
@@ -500,53 +509,175 @@ function makeGlow(size, color, base = 0.9) {
   m.rotation.x = -Math.PI / 2; m.renderOrder = 5; glows.push({ m, base }); return m;
 }
 
-// ───────────────────────── terrain ─────────────────────────
-const T_SIZE = 64, T_SEG = 300, ISLAND_R = 22, PLAZA_H = 1.05, STEP = 0.75;
-function terrace(h, step) { const t = h / step, i = Math.floor(t), f = t - i; return (i + smoothstep(0.4, 0.6, f)) * step; }
-function heightAt(x, z) {
-  const r = Math.hypot(x, z);
-  const n = fbm(x * 0.11 + 3.1, z * 0.11 - 1.7, 1, 4);
+// ───────────────────────── terrain: a grid of levels is the source of truth; the mesh is drawn from it ─────────────────────────
+const T_SIZE = 64, NC = 64, HALF = 32, SUB = 4, ISLAND_R = 22, PLAZA_R = 7;
+const LEVEL_H = [0.3, 1.05, 1.8], PLAZA_H = LEVEL_H[1], WATER = -1;
+const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+const cidx = (i, j) => j * NC + i;
+const inGrid = (i, j) => i >= 0 && j >= 0 && i < NC && j < NC;
+const cellCenter = (i, j) => [i - HALF + 0.5, j - HALF + 0.5];
+const cellOf = (x, z) => [Math.floor(x + HALF), Math.floor(z + HALF)];
+const level = new Int8Array(NC * NC), ramp = new Array(NC * NC).fill(null), occ = new Array(NC * NC).fill(null);
+const dWater = new Float32Array(NC * NC), dLand = new Float32Array(NC * NC);
+
+function rawHeight(x, z) {
+  const r = Math.hypot(x, z), n = fbm(x * 0.11 + 3.1, z * 0.11 - 1.7, 1, 4);
   const edge = r / ISLAND_R + (n - 0.5) * 0.6;
-  const mask = 1 - smoothstep(0.5, 1.0, edge);
-  let h = mask * (0.9 + fbm(x * 0.07 + 10, z * 0.07, 7, 3) * 2.4) - 0.45;
-  h -= smoothstep(0.95, 1.4, edge) * 1.4;
-  const p = 1 - smoothstep(3.8, 6.2, r);
-  h = lerp(h, PLAZA_H, p);
-  if (h > 0.3) h = 0.3 + terrace(h - 0.3, STEP);
-  if (h > 0.05) h += (vnoise(x * 1.1, z * 1.1, 3) - 0.5) * 0.07 * (1 - p);
-  return h;
+  return (1 - smoothstep(0.5, 1.0, edge)) * (0.9 + fbm(x * 0.07 + 10, z * 0.07, 7, 3) * 2.4) - 0.45;
+}
+function bfsDistance(out, isSource) {
+  out.fill(1e9); const q = [];
+  for (let c = 0; c < NC * NC; c++) if (isSource(c)) { out[c] = 0; q.push(c); }
+  for (let h = 0; h < q.length; h++) {
+    const c = q[h], i = c % NC, j = (c / NC) | 0;
+    for (const [dx, dz] of DIRS) { const ni = i + dx, nj = j + dz; if (!inGrid(ni, nj)) continue; const n = cidx(ni, nj); if (out[n] > out[c] + 1) { out[n] = out[c] + 1; q.push(n); } }
+  }
+}
+(function buildLevels() {
+  for (let j = 0; j < NC; j++) for (let i = 0; i < NC; i++) {
+    const [x, z] = cellCenter(i, j), h = rawHeight(x, z);
+    level[cidx(i, j)] = Math.hypot(x, z) < PLAZA_R ? 1 : h < 0.02 ? WATER : h < 0.6 ? 0 : h < 1.5 ? 1 : 2;
+  }
+  // majority filter so level regions are blobby, not speckled
+  for (let pass = 0; pass < 2; pass++) {
+    const src = level.slice();
+    for (let j = 1; j < NC - 1; j++) for (let i = 1; i < NC - 1; i++) {
+      const [x, z] = cellCenter(i, j); if (Math.hypot(x, z) < PLAZA_R) continue;
+      const cnt = [0, 0, 0, 0];
+      for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) cnt[src[cidx(i + di, j + dj)] + 1]++;
+      const best = cnt.indexOf(Math.max(...cnt)); if (cnt[best] >= 5) level[cidx(i, j)] = best - 1;
+    }
+  }
+  // shore is always beach; neighbouring cells differ by at most one level
+  for (let changed = true; changed;) {
+    changed = false;
+    for (let j = 0; j < NC; j++) for (let i = 0; i < NC; i++) {
+      const c = cidx(i, j), L = level[c]; if (L <= 0) continue;
+      for (const [dx, dz] of DIRS) {
+        if (!inGrid(i + dx, j + dz)) continue; const nL = level[cidx(i + dx, j + dz)];
+        if ((nL === WATER && L > 0) || (nL >= 0 && L - nL > 1)) { level[c] = nL === WATER ? 0 : L - 1; changed = true; break; }
+      }
+    }
+  }
+  bfsDistance(dWater, (c) => level[c] === WATER);
+  bfsDistance(dLand, (c) => level[c] !== WATER);
+  // ramps: every raised region gets 1–4 ramps (3 cells wide), spread around it
+  const R = rng(777);
+  for (const k of [0, 1]) {
+    const seen = new Uint8Array(NC * NC);
+    for (let s = 0; s < NC * NC; s++) {
+      if (seen[s] || level[s] !== k + 1) continue;
+      const comp = []; const q = [s]; seen[s] = 1;
+      for (let h = 0; h < q.length; h++) { const c = q[h]; comp.push(c); const i = c % NC, j = (c / NC) | 0; for (const [dx, dz] of DIRS) { const ni = i + dx, nj = j + dz; if (!inGrid(ni, nj)) continue; const n = cidx(ni, nj); if (!seen[n] && level[n] === k + 1) { seen[n] = 1; q.push(n); } } }
+      if (comp.length < 6) continue;
+      const inComp = new Set(comp);
+      const cand = new Set();
+      const ok = (i, j, d) => { if (!inGrid(i, j) || !inGrid(i - d[0], j - d[1]) || !inGrid(i + d[0], j + d[1])) return false; const c = cidx(i, j); return level[c] === k && !ramp[c] && level[cidx(i - d[0], j - d[1])] === k && inComp.has(cidx(i + d[0], j + d[1])) && (k > 0 || dWater[c] >= 2); };
+      const runs = [];
+      for (const c of comp) {
+        const ni = c % NC, nj = (c / NC) | 0;
+        for (const d of DIRS) {
+          const i = ni - d[0], j = nj - d[1], p = [d[1], d[0]];
+          if (!ok(i, j, d) || !ok(i + p[0], j + p[1], d) || !ok(i + 2 * p[0], j + 2 * p[1], d)) continue;
+          const key = cidx(i, j) + ':' + d; if (cand.has(key)) continue; cand.add(key);
+          const [x, z] = cellCenter(i + p[0], j + p[1]);
+          runs.push({ cells: [[i, j], [i + p[0], j + p[1]], [i + 2 * p[0], j + 2 * p[1]]], d, x, z });
+        }
+      }
+      if (!runs.length) continue;
+      const cx = comp.reduce((a, c) => a + cellCenter(c % NC, (c / NC) | 0)[0], 0) / comp.length;
+      const cz = comp.reduce((a, c) => a + cellCenter(c % NC, (c / NC) | 0)[1], 0) / comp.length;
+      const count = comp.length > 300 ? 4 : comp.length > 60 ? 2 : 1, base = R() * Math.PI * 2, chosen = [];
+      for (let m = 0; m < count; m++) {
+        const target = base + m * Math.PI * 2 / count;
+        let best = null, bestD = 1e9;
+        for (const r of runs) {
+          if (chosen.some(o => Math.hypot(o.x - r.x, o.z - r.z) < 6)) continue;
+          if (r.cells.some(([i, j]) => ramp[cidx(i, j)])) continue;
+          let da = Math.abs(Math.atan2(r.z - cz, r.x - cx) - target) % (Math.PI * 2); da = Math.min(da, Math.PI * 2 - da);
+          if (da < bestD) { bestD = da; best = r; }
+        }
+        if (!best) continue;
+        chosen.push(best); best.cells.forEach(([i, j]) => { ramp[cidx(i, j)] = { k, d: best.d }; });
+      }
+    }
+  }
+})();
+
+function sampleField(F, x, z) {
+  const u = Math.min(NC - 1.001, Math.max(0, x + HALF - 0.5)), v = Math.min(NC - 1.001, Math.max(0, z + HALF - 0.5));
+  const i = Math.floor(u), j = Math.floor(v), fu = u - i, fv = v - j;
+  return lerp(lerp(F[cidx(i, j)], F[cidx(i + 1, j)], fu), lerp(F[cidx(i, j + 1)], F[cidx(i + 1, j + 1)], fu), fv);
+}
+function cellHeight(i, j, x, z) {
+  const c = cidx(i, j), L = level[c];
+  if (L === WATER) return -0.15 - 1.5 * smoothstep(0.5, 5, sampleField(dLand, x, z));
+  const rp = ramp[c];
+  if (rp) { const [cx, cz] = cellCenter(i, j); const t = (x - cx) * rp.d[0] + (z - cz) * rp.d[1] + 0.5; return lerp(LEVEL_H[rp.k], LEVEL_H[rp.k + 1], Math.min(1, Math.max(0, t))); }
+  if (L === 0) return lerp(-0.12, LEVEL_H[0], smoothstep(0.2, 2.2, sampleField(dWater, x, z)));
+  return LEVEL_H[L] + (Math.hypot(x, z) > PLAZA_R - 1 ? (vnoise(x * 1.3, z * 1.3, 3) - 0.5) * 0.05 : 0);
+}
+const VN = NC * SUB + 1, VH = new Float32Array(VN * VN);
+for (let vj = 0; vj < VN; vj++) for (let vi = 0; vi < VN; vi++) {
+  const x = -HALF + vi / SUB, z = -HALF + vj / SUB;
+  const is = vi % SUB === 0 ? [vi / SUB - 1, vi / SUB] : [Math.floor(vi / SUB)];
+  const js = vj % SUB === 0 ? [vj / SUB - 1, vj / SUB] : [Math.floor(vj / SUB)];
+  let h = -1e9; for (const i of is) for (const j of js) if (inGrid(i, j)) h = Math.max(h, cellHeight(i, j, x, z));
+  VH[vj * VN + vi] = h;
+}
+function heightAt(x, z) {
+  const u = Math.min(VN - 1.001, Math.max(0, (x + HALF) * SUB)), v = Math.min(VN - 1.001, Math.max(0, (z + HALF) * SUB));
+  const i = Math.floor(u), j = Math.floor(v), fu = u - i, fv = v - j;
+  return lerp(lerp(VH[j * VN + i], VH[j * VN + i + 1], fu), lerp(VH[(j + 1) * VN + i], VH[(j + 1) * VN + i + 1], fu), fv);
 }
 function slopeAt(x, z) { const e = 0.3; return Math.hypot(heightAt(x + e, z) - heightAt(x - e, z), heightAt(x, z + e) - heightAt(x, z - e)) / (2 * e); }
 
 function buildTerrain() {
-  let geo = new THREE.PlaneGeometry(T_SIZE, T_SIZE, T_SEG, T_SEG);
+  let geo = new THREE.PlaneGeometry(T_SIZE, T_SIZE, VN - 1, VN - 1);
   geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position;
-  for (let i = 0; i < pos.count; i++) pos.setY(i, heightAt(pos.getX(i), pos.getZ(i)));
+  for (let k = 0; k < pos.count; k++) {
+    const x = pos.getX(k), z = pos.getZ(k), vi = Math.round((x + HALF) * SUB), vj = Math.round((z + HALF) * SUB);
+    pos.setXYZ(k, x + (vnoise(x * 2.1, z * 2.1, 41) - 0.5) * 0.12, VH[vj * VN + vi], z + (vnoise(x * 2.1, z * 2.1, 43) - 0.5) * 0.12);
+  }
   geo = geo.toNonIndexed();
   geo.computeVertexNormals();
   const p = geo.attributes.position, cols = new Float32Array(p.count * 3);
   const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3();
   const col = new THREE.Color(), tmp = new THREE.Color();
-  for (let i = 0; i < p.count; i += 3) {
-    a.fromBufferAttribute(p, i); b.fromBufferAttribute(p, i + 1); c.fromBufferAttribute(p, i + 2);
+  for (let f = 0; f < p.count; f += 3) {
+    a.fromBufferAttribute(p, f); b.fromBufferAttribute(p, f + 1); c.fromBufferAttribute(p, f + 2);
     const ny = Math.abs(e1.subVectors(b, a).cross(e2.subVectors(c, a)).normalize().y);
     const cx = (a.x + b.x + c.x) / 3, cy = (a.y + b.y + c.y) / 3, cz = (a.z + b.z + c.z) / 3, r = Math.hypot(cx, cz);
-    const j = hash2(i, 7, 3) - 0.5;
+    const [ci, cj] = cellOf(cx, cz), cell = inGrid(ci, cj) ? cidx(ci, cj) : 0, L = level[cell];
+    const jit = hash2(f, 7, 3) - 0.5;
     if (cy < -0.06) col.set(PAL.seabed).lerp(tmp.set(PAL.sandDark), smoothstep(-1.3, -0.05, cy));
-    else if (ny < 0.72) col.set(Math.floor((cy + 3) * 3.4) % 2 ? PAL.cliff : PAL.cliffDark);
-    else if (cy < 0.34) col.set(PAL.sand).lerp(tmp.set(PAL.sandDark), smoothstep(0.12, -0.04, cy));
+    else if (ny < 0.6) col.set(Math.floor((cy + 3) * 3.4) % 2 ? PAL.cliff : PAL.cliffDark);
+    else if (ramp[cell]) col.set(PAL.dirt).lerp(tmp.set(PAL.sand), 0.3);
+    else if (L <= 0) col.set(PAL.sand).lerp(tmp.set(PAL.sandDark), smoothstep(0.14, -0.04, cy));
     else {
       const g = fbm(cx * 0.22, cz * 0.22, 11, 3);
       col.set(PAL.grassDark).lerp(tmp.set(PAL.grass), smoothstep(0.3, 0.5, g)).lerp(tmp.set(PAL.grassLight), smoothstep(0.55, 0.75, g));
-      const d = smoothstep(4.0, 5.2, r + (vnoise(cx * 0.9, cz * 0.9, 5) - 0.5) * 1.6);
-      col.lerp(tmp.set(PAL.dirt), 1 - d);
+      if (L === 2) col.lerp(tmp.set(PAL.grassLight), 0.35).offsetHSL(-0.015, 0, 0.02);
+      if (L === 1) col.lerp(tmp.set(PAL.dirt), 1 - smoothstep(4.0, 5.2, r + (vnoise(cx * 0.9, cz * 0.9, 5) - 0.5) * 1.6));
     }
-    col.offsetHSL(0, 0, j * 0.045);
-    for (let k = 0; k < 3; k++) { cols[(i + k) * 3] = col.r; cols[(i + k) * 3 + 1] = col.g; cols[(i + k) * 3 + 2] = col.b; }
+    col.offsetHSL(0, 0, jit * 0.045);
+    for (let k = 0; k < 3; k++) { cols[(f + k) * 3] = col.r; cols[(f + k) * 3 + 1] = col.g; cols[(f + k) * 3 + 2] = col.b; }
   }
   geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
   return mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95 }));
+}
+// build-mode grid overlay: each land cell outlined at its own height
+function buildGridLines() {
+  const pts = [], ins = 0.05;
+  for (let j = 0; j < NC; j++) for (let i = 0; i < NC; i++) {
+    if (level[cidx(i, j)] === WATER) continue;
+    const [x, z] = cellCenter(i, j), q = [[x - 0.5 + ins, z - 0.5 + ins], [x + 0.5 - ins, z - 0.5 + ins], [x + 0.5 - ins, z + 0.5 - ins], [x - 0.5 + ins, z + 0.5 - ins]];
+    for (let k = 0; k < 4; k++) { const [ax, az] = q[k], [bx, bz] = q[(k + 1) % 4]; pts.push(ax, cellHeight(i, j, ax, az) + 0.03, az, bx, cellHeight(i, j, bx, bz) + 0.03, bz); }
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+  const l = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0.2, depthWrite: false }));
+  l.visible = false; return l;
 }
 
 // water with depth tint + shoreline foam
@@ -652,14 +783,17 @@ function makeCloud(seed) {
 }
 
 // ───────────────────────── buildings ─────────────────────────
-function makeFence(seed = 1) {
-  const R = rng(seed), g = new THREE.Group(), wood = M(PAL.wood), woodL = M(PAL.woodLight), woodD = M(PAL.woodDark);
-  for (const x of [-0.75, 0, 0.75]) {
-    const p = mesh(new RoundedBoxGeometry(0.15, 0.85, 0.15, 2, 0.03), wood, x, 0.42, 0, g); p.rotation.z = (R() - 0.5) * 0.08;
-    const tip = mesh(new THREE.ConeGeometry(0.105, 0.18, 4), wood, x, 0.93, 0, g); tip.rotation.y = Math.PI / 4;
-    const rope = mesh(new THREE.TorusGeometry(0.095, 0.022, 6, 14), woodD, x, 0.62, 0, g); rope.rotation.x = Math.PI / 2;
+// one fence per grid cell: centre post, rails reach toward each fenced neighbour (bits: +x, -x, +z, -z)
+function makeFenceCell(mask, seed = 1) {
+  const R = rng(seed + 1), g = new THREE.Group(), wood = M(PAL.wood), woodL = M(PAL.woodLight), woodD = M(PAL.woodDark);
+  const post = mesh(new RoundedBoxGeometry(0.15, 0.85, 0.15, 2, 0.03), wood, 0, 0.42, 0, g); post.rotation.y = (R() - 0.5) * 0.3;
+  const tip = mesh(new THREE.ConeGeometry(0.105, 0.18, 4), wood, 0, 0.93, 0, g); tip.rotation.y = Math.PI / 4;
+  const rope = mesh(new THREE.TorusGeometry(0.095, 0.022, 6, 14), woodD, 0, 0.62, 0, g); rope.rotation.x = Math.PI / 2;
+  const arms = mask ? DIRS.filter((_, b) => mask & (1 << b)) : [[1, 0], [-1, 0]], len = mask ? 0.52 : 0.3;
+  for (const [dx, dz] of arms) for (const y of [0.32, 0.62]) {
+    const geo = dx ? new RoundedBoxGeometry(len, 0.13, 0.06, 2, 0.025) : new RoundedBoxGeometry(0.06, 0.13, len, 2, 0.025);
+    mesh(geo, y > 0.5 ? woodL : wood, dx * len / 2, y + (R() - 0.5) * 0.03, dz * len / 2, g);
   }
-  for (const y of [0.32, 0.62]) { const pl = mesh(new RoundedBoxGeometry(1.75, 0.13, 0.06, 2, 0.025), y > 0.5 ? woodL : wood, 0, y, 0.09, g); pl.rotation.z = (R() - 0.5) * 0.06; }
   return g;
 }
 function makeTower(flagColor = PAL.p1) {
@@ -702,7 +836,7 @@ function makeTower(flagColor = PAL.p1) {
   };
   return g;
 }
-function makeLantern() {
+function makeLantern({ light: withLight = true, glow = true } = {}) {
   const g = new THREE.Group(), post = M(PAL.woodDark), metal = M(PAL.metal, { rough: 0.45, metal: 0.6 });
   mesh(new RoundedBoxGeometry(0.16, 1.7, 0.16, 2, 0.03), post, 0, 0.85, 0, g);
   mesh(new RoundedBoxGeometry(0.58, 0.09, 0.09, 2, 0.02), post, 0.22, 1.64, 0, g);
@@ -715,9 +849,9 @@ function makeLantern() {
   mesh(new RoundedBoxGeometry(0.29, 0.045, 0.29, 1, 0.01), metal, 0, -0.16, 0, lamp);
   const top = mesh(new THREE.ConeGeometry(0.23, 0.15, 4), metal, 0, 0.22, 0, lamp); top.rotation.y = Math.PI / 4;
   mesh(new THREE.TorusGeometry(0.035, 0.012, 5, 10), metal, 0, 0.32, 0, lamp);
-  const light = new THREE.PointLight(PAL.glowWarm, 0, 7, 1.6); lamp.add(light); nightLights.push({ light, base: 5 });
+  if (withLight) { const light = new THREE.PointLight(PAL.glowWarm, 0, 7, 1.6); lamp.add(light); nightLights.push({ light, base: 5 }); }
   for (let i = 0; i < 3; i++) { const r = makeRockMesh(80 + i, 0.16, true); const a = i * 2.1; r.position.set(Math.cos(a) * 0.2, 0.03, Math.sin(a) * 0.2); g.add(r); }
-  const pool = makeGlow(4.2, PAL.glowWarm, 0.55); pool.position.set(0.42, 0.03, 0); g.add(pool);
+  if (glow) { const pool = makeGlow(4.2, PAL.glowWarm, 0.55); pool.position.set(0.42, 0.03, 0); g.add(pool); }
   g.userData.lamp = lamp;
   return g;
 }
@@ -935,38 +1069,70 @@ function makeFenerbocegi(seed = 3) {
 
 // ───────────────────────── island diorama ─────────────────────────
 const island = new THREE.Group(); scene.add(island);
-island.add(buildTerrain());
+const terrainMesh = buildTerrain(); island.add(terrainMesh);
+const gridLines = buildGridLines(); island.add(gridLines);
 scene.add(buildWater());
-const occupied = [{ x: 0, z: 0, r: 5.6 }, ...[245, 262, 280, 298].map(d => ({ x: Math.cos(d * Math.PI / 180) * 7, z: Math.sin(d * Math.PI / 180) * 7, r: 1.6 }))];
 const polar = (deg, r) => [Math.cos(deg * Math.PI / 180) * r, Math.sin(deg * Math.PI / 180) * r];
 function place(obj, x, z, rotY = 0, parent = island) { obj.position.set(x, heightAt(x, z), z); obj.rotation.y = rotY; parent.add(obj); return obj; }
-function findSpot(R, { minH = 0.45, minR = 6, maxR = ISLAND_R, maxSlope = 0.3, r = 0.8 } = {}) {
-  for (let i = 0; i < 300; i++) {
-    const a = R() * Math.PI * 2, d = minR + R() * (maxR - minR), x = Math.cos(a) * d, z = Math.sin(a) * d;
-    if (heightAt(x, z) < minH || slopeAt(x, z) > maxSlope) continue;
-    if (occupied.some(o => Math.hypot(o.x - x, o.z - z) < o.r + r)) continue;
-    occupied.push({ x, z, r }); return [x, z];
-  }
-  return null;
-}
 const animated = [];
 const reg = (o) => { if (o.userData.anim) animated.push(o); o.traverse(c => { if (c !== o && c.userData.anim) animated.push(c); }); return o; };
 
-// plaza
-const ocak = reg(place(makeOcak(), 0, 0));
-[60, 180, 300].forEach((d, i) => { const [x, z] = polar(d, 1.9); place(makeBench(i + 3), x, z, -d * Math.PI / 180 + Math.PI / 2); });
-reg(place(makeTower(PAL.p1), ...polar(225, 3.0), Math.PI / 4));
-const lanterns = [[20, 3.1], [112, 3.0], [330, 3.2]].map(([d, r]) => place(makeLantern(), ...polar(d, r), -d * Math.PI / 180));
-place(makeWoodPile(), ...polar(158, 3.2), 0.4);
-place(makeStonePile(), ...polar(262, 2.9));
-// fences snap to the grid: straight runs, auto-joined corners
-[-1.5, 0, 1.5, 3].forEach((x, i) => place(makeFence(i + 1), x, -4.5, 0));
-[-3, -1.5, 0].forEach((z, i) => place(makeFence(i + 7), 4.5, z, Math.PI / 2));
+// occupancy + placement rules (same rules the real sim will use)
+const occAt = (i, j) => (inGrid(i, j) ? occ[cidx(i, j)] : 'edge');
+const occupy = (cells, what) => cells.forEach(([i, j]) => { occ[cidx(i, j)] = what; });
+const OCAK_SAFE = 2.6;
+const ISSUE = { tree: 'Ağaç var — önce kes', rock: 'Kaya var — önce kır', bush: 'Çalı var — önce temizle', fence: 'Dolu', building: 'Dolu' };
+function cellIssue(i, j, needLevel) {
+  if (!inGrid(i, j)) return 'Harita dışı';
+  const c = cidx(i, j), L = level[c];
+  if (L === WATER) return 'Su';
+  if (L === 0 && dWater[c] < 2) return 'Islak kum';
+  if (ramp[c]) return 'Rampa — yol açık kalmalı';
+  const [x, z] = cellCenter(i, j); if (Math.hypot(x, z) < OCAK_SAFE) return 'Ocak alanı';
+  if (occ[c]) return ISSUE[occ[c]] || 'Dolu';
+  if (needLevel !== undefined && L !== needLevel) return 'Farklı kat — yar kenarı';
+  return null;
+}
+function randomFreeCell(rand, { minR = 7.5, maxR = ISLAND_R - 2, gap = 1 } = {}) {
+  for (let n = 0; n < 600; n++) {
+    const i = (rand() * NC) | 0, j = (rand() * NC) | 0, [x, z] = cellCenter(i, j), r = Math.hypot(x, z);
+    if (r < minR || r > maxR || cellIssue(i, j)) continue;
+    let ok = true;
+    for (let dj = -gap; dj <= gap && ok; dj++) for (let di = -gap; di <= gap; di++) {
+      if (!inGrid(i + di, j + dj)) continue; const c = cidx(i + di, j + dj);
+      if (occ[c] || ramp[c]) { ok = false; break; }
+    }
+    if (ok) return [i, j];
+  }
+  return null;
+}
 
-// nature
-const R = rng(1234);
-// resource nodes: fixed count; when one is used up a new one grows at a random free spot
-const R2 = rng(4242);
+// fences: one per cell, rails auto-join to neighbouring fences
+const fenceMeshes = new Map();
+function refreshFence(i, j) {
+  if (!inGrid(i, j)) return;
+  const c = cidx(i, j), old = fenceMeshes.get(c);
+  if (old) { island.remove(old); fenceMeshes.delete(c); }
+  if (occ[c] !== 'fence') return;
+  let mask = 0; DIRS.forEach(([dx, dz], b) => { if (occAt(i + dx, j + dz) === 'fence') mask |= 1 << b; });
+  const g = makeFenceCell(mask, c); place(g, ...cellCenter(i, j)); fenceMeshes.set(c, g);
+}
+function addFences(cells) {
+  occupy(cells, 'fence');
+  cells.forEach(([i, j]) => { refreshFence(i, j); DIRS.forEach(([dx, dz]) => refreshFence(i + dx, j + dz)); });
+}
+
+// plaza
+const ocak = reg(place(makeOcak(), 0, 0)); occupy([[31, 31], [32, 31], [31, 32], [32, 32]], 'building');
+[60, 180, 300].forEach((d, i) => { const [x, z] = polar(d, 1.9); place(makeBench(i + 3), x, z, -d * Math.PI / 180 + Math.PI / 2); });
+reg(place(makeTower(PAL.p1), -2, -2, Math.PI / 4)); occupy([[29, 29], [30, 29], [29, 30], [30, 30]], 'building');
+const lanterns = [[2.5, 1.5, -0.35], [-1.5, 2.5, -1.95], [2.5, -1.5, 0.52]].map(([x, z, r]) => { const [i, j] = cellOf(x, z); occupy([[i, j]], 'building'); return place(makeLantern(), x, z, r); });
+place(makeWoodPile(), -3, 1.5); occupy([cellOf(-3.5, 1.5), cellOf(-2.5, 1.5)], 'building');
+place(makeStonePile(), -0.5, -2.5); occupy([cellOf(-0.5, -2.5)], 'building');
+addFences([[30, 27], [31, 27], [32, 27], [33, 27], [34, 27], [35, 27], [36, 27], [36, 28], [36, 29], [36, 30], [36, 31]]);
+
+// resource nodes: fixed count; when one is used up a new one grows on a random free cell
+const R = rng(1234), R2 = rng(4242);
 const easeOutBack = (k) => 1 + 2.70158 * Math.pow(k - 1, 3) + 1.70158 * Math.pow(k - 1, 2);
 const fx = [];
 updaters.push((t) => { for (let i = fx.length - 1; i >= 0; i--) if (!fx[i](t)) fx.splice(i, 1); });
@@ -986,12 +1152,13 @@ function popText(obj, yOff, html) {
     if (k >= 1) { el.remove(); return false; } return true;
   });
 }
-function growNode(kind, [x, z], instant = false) {
-  const holder = new THREE.Group(); holder.rotation.order = 'YXZ';
+const nodeAt = new Map();
+function growNode(kind, [i, j], instant = false) {
+  const [x, z] = cellCenter(i, j), holder = new THREE.Group(); holder.rotation.order = 'YXZ';
   const seed = (R2() * 1e6) | 0;
-  const model = kind === 'tree' ? (R2() < 0.5 ? makePine(seed, 0.9 + R2() * 0.3) : makeOak(seed, 0.85 + R2() * 0.25)) : makeRock(seed, 0.55 + R2() * 0.3);
+  const model = kind === 'tree' ? (R2() < 0.5 ? makePine(seed, 0.9 + R2() * 0.3) : makeOak(seed, 0.85 + R2() * 0.25)) : makeRock(seed, 0.5 + R2() * 0.25);
   model.rotation.y = R2() * 6.28; holder.add(model); place(holder, x, z);
-  const node = { kind, holder, x, z, occ: occupied[occupied.length - 1] };
+  const node = { kind, holder, i, j, x, z }; occupy([[i, j]], kind); nodeAt.set(cidx(i, j), node);
   if (!instant) {
     holder.scale.setScalar(0.001); const t0 = clock.elapsedTime;
     spawnPuff(x, holder.position.y, z, kind === 'tree' ? 1.2 : 0.8);
@@ -1000,7 +1167,7 @@ function growNode(kind, [x, z], instant = false) {
   return node;
 }
 function removeNode(node, awayFrom) {
-  occupied.splice(occupied.indexOf(node.occ), 1);
+  occ[cidx(node.i, node.j)] = null; nodeAt.delete(cidx(node.i, node.j));
   const h = node.holder, t0 = clock.elapsedTime, y0 = h.position.y;
   if (node.kind === 'tree') {
     h.rotation.y = Math.atan2(node.x - awayFrom.x, node.z - awayFrom.z);
@@ -1015,19 +1182,53 @@ function removeNode(node, awayFrom) {
     fx.push((t) => { const k = (t - t0) / 0.5; h.position.x = node.x + Math.sin(t * 60) * 0.05 * (1 - k); h.scale.setScalar(Math.max(0.001, 1 - k * k)); if (k >= 1) { island.remove(h); spawnPuff(node.x, y0, node.z, 0.9); return false; } return true; });
   }
 }
-const nodeSpot = (o) => findSpot(R2, { minR: 7.5, maxR: ISLAND_R - 3, r: 1.8, maxSlope: 0.18, ...o });
 const trees = [], rocks = [];
-for (let i = 0; i < 14; i++) { const s = nodeSpot(); if (s) trees.push(growNode('tree', s, true)); }
-for (let i = 0; i < 8; i++) { const s = nodeSpot({ r: 1.3, maxSlope: 0.3 }); if (s) rocks.push(growNode('rock', s, true)); }
-for (let i = 0; i < 7; i++) { const s = findSpot(R, { minR: 6.5, r: 0.6 }); if (s) place(makeBush(i + 20), ...s, R() * 6); }
-for (let i = 0; i < 18; i++) { const a = R() * Math.PI * 2; for (let d = ISLAND_R + 2; d > 6; d -= 0.2) { const x = Math.cos(a) * d, z = Math.sin(a) * d, h = heightAt(x, z); if (h > -0.35) { const r = makeRockMesh(100 + i, 0.3 + R() * 0.45, true); r.position.set(x, h - 0.05, z); r.rotation.y = R() * 6; island.add(r); break; } } }
+for (let n = 0; n < 14; n++) { const c = randomFreeCell(R2); if (c) trees.push(growNode('tree', c, true)); }
+for (let n = 0; n < 8; n++) { const c = randomFreeCell(R2); if (c) rocks.push(growNode('rock', c, true)); }
+for (let n = 0; n < 7; n++) { const c = randomFreeCell(R, { minR: 6.5, gap: 0 }); if (c) { place(makeBush(n + 20), ...cellCenter(...c), R() * 6); occupy([c], 'bush'); } }
+for (let n = 0; n < 18; n++) { const a = R() * Math.PI * 2; for (let d = ISLAND_R + 6; d > 6; d -= 0.2) { const x = Math.cos(a) * d, z = Math.sin(a) * d, h = heightAt(x, z); if (h > -0.35) { const r = makeRockMesh(100 + n, 0.3 + R() * 0.45, true); r.position.set(x, h - 0.05, z); r.rotation.y = R() * 6; island.add(r); break; } } }
 
-// chopper loop: chop → tree falls (+odun) → new tree grows at a random spot → walk there → chop
+// grid pathfinding: same level, or up/down a ramp along its direction (cliffs block)
+function canStep(a, b) {
+  const ca = cidx(a[0], a[1]), cb = cidx(b[0], b[1]), la = level[ca], lb = level[cb];
+  if (la === WATER || lb === WATER) return false;
+  const ra = ramp[ca], rb = ramp[cb], d = [b[0] - a[0], b[1] - a[1]];
+  if (!ra && !rb) return la === lb;
+  if (ra && rb) return ra.k === rb.k && ra.d[0] === rb.d[0] && ra.d[1] === rb.d[1] && d[0] * ra.d[0] + d[1] * ra.d[1] === 0;
+  const [r, dd, other] = ra ? [ra, d, lb] : [rb, [-d[0], -d[1]], la];
+  if (dd[0] === r.d[0] && dd[1] === r.d[1]) return other === r.k + 1;
+  if (dd[0] === -r.d[0] && dd[1] === -r.d[1]) return other === r.k;
+  return false;
+}
+function findPath(start, isGoal) {
+  const prev = new Int32Array(NC * NC).fill(-2), s = cidx(start[0], start[1]), q = [s]; prev[s] = -1;
+  for (let h = 0; h < q.length; h++) {
+    const c = q[h], i = c % NC, j = (c / NC) | 0;
+    if (isGoal(i, j)) { const path = []; for (let k = c; k !== -1; k = prev[k]) path.unshift([k % NC, (k / NC) | 0]); return path; }
+    for (const [dx, dz] of DIRS) {
+      const ni = i + dx, nj = j + dz; if (!inGrid(ni, nj)) continue; const n = cidx(ni, nj);
+      if (prev[n] !== -2 || occ[n] || !canStep([i, j], [ni, nj])) continue;
+      prev[n] = c; q.push(n);
+    }
+  }
+  return null;
+}
+// a tree next to this cell, on the same level, that the chopper can stand beside
+function treeBeside(i, j) {
+  const c = cidx(i, j); if (ramp[c]) return null;
+  for (const [dx, dz] of DIRS) { const n = nodeAt.get(cidx(i + dx, j + dz)); if (n && n.kind === 'tree' && level[cidx(n.i, n.j)] === level[c]) return n; }
+  return null;
+}
+
+// chopper loop: chop → tree falls (+odun) → a new tree grows somewhere → walk (by path) to the nearest tree
 const chopper = reg(makeVillager({ color: PAL.p3, hat: 'bandana', seed: 3 })); island.add(chopper);
-const standFor = (n) => { const d = Math.hypot(n.x, n.z); return new THREE.Vector3(n.x - n.x / d * 0.95, 0, n.z - n.z / d * 0.95); };
-let chopTarget = trees.reduce((a, b) => (Math.hypot(a.x, a.z) < Math.hypot(b.x, b.z) ? a : b));
-let chopPhase = 'chop', chopT = 0, stand = standFor(chopTarget);
-chopper.position.set(stand.x, heightAt(stand.x, stand.z), stand.z);
+let chopTarget = null, chopPhase = 'walk', chopT = 0, path = [];
+function planChop() {
+  const p = findPath(cellOf(chopper.position.x, chopper.position.z), (i, j) => !!treeBeside(i, j));
+  if (!p) return false;
+  path = p.map(([i, j]) => cellCenter(i, j)); const [gi, gj] = p[p.length - 1]; chopTarget = treeBeside(gi, gj); return true;
+}
+{ const [x, z] = cellCenter(33, 35); chopper.position.set(x, heightAt(x, z), z); if (planChop() && path.length) { const [ex, ez] = path[path.length - 1]; chopper.position.set(ex, heightAt(ex, ez), ez); path = []; chopPhase = 'chop'; } else chopPhase = 'wait'; }
 updaters.push((t, dt) => {
   chopT += dt;
   if (chopPhase === 'chop') {
@@ -1041,16 +1242,15 @@ updaters.push((t, dt) => {
   } else if (chopPhase === 'wait') {
     chopper.userData.state = 'idle';
     if (chopT > 1.0) {
-      const s = nodeSpot({ maxR: 14 });
-      if (s) { chopTarget = growNode('tree', s); trees.push(chopTarget); stand = standFor(chopTarget); }
-      chopPhase = 'walk'; chopT = 0;
+      const c = randomFreeCell(R2); if (c) trees.push(growNode('tree', c));
+      chopPhase = planChop() ? 'walk' : 'wait'; chopT = 0;
     }
   } else {
     chopper.userData.state = 'walk';
-    const dx = stand.x - chopper.position.x, dz = stand.z - chopper.position.z, d = Math.hypot(dx, dz);
-    if (d < 0.06) { chopPhase = 'chop'; chopT = 0; }
-    else { const st = Math.min(d, dt * 2.4); chopper.position.x += dx / d * st; chopper.position.z += dz / d * st; chopper.rotation.y = Math.atan2(dx, dz); }
-    const pr = Math.hypot(chopper.position.x, chopper.position.z); if (pr < 2.4) { chopper.position.x *= 2.4 / pr; chopper.position.z *= 2.4 / pr; }
+    if (!path.length) { chopPhase = 'chop'; chopT = 0; return; }
+    const [tx, tz] = path[0], dx = tx - chopper.position.x, dz = tz - chopper.position.z, d = Math.hypot(dx, dz);
+    if (d < 0.05) { path.shift(); return; }
+    const st = Math.min(d, dt * 2.6); chopper.position.x += dx / d * st; chopper.position.z += dz / d * st; chopper.rotation.y = Math.atan2(dx, dz);
     chopper.position.y = heightAt(chopper.position.x, chopper.position.z);
   }
 });
@@ -1062,17 +1262,105 @@ updaters.push((t, dt) => {
   rockT = 0;
   const r = rocks.splice((R2() * rocks.length) | 0, 1)[0];
   removeNode(r); popText(r.holder, 1.3, '+2 <svg class="i"><use href="#i-stone"/></svg>');
-  const s = nodeSpot({ r: 1.3, maxSlope: 0.3 });
-  if (s) { const t0 = clock.elapsedTime; fx.push((tt) => { if (tt - t0 < 0.8) return true; rocks.push(growNode('rock', s)); return false; }); }
+  const c = randomFreeCell(R2);
+  if (c) { const t0 = clock.elapsedTime; fx.push((tt) => { if (tt - t0 < 0.8) return true; rocks.push(growNode('rock', c)); return false; }); }
 });
+
+// build mode: hover shows the footprint green/red with the reason; fences drag into straight lines
+const BUILD = { fence: { name: 'Çit', cost: '5 odun / hücre' }, tower: { name: 'Ok Kulesi', cost: '12 odun · 6 taş' }, lantern: { name: 'Fener', cost: '4 odun · 2 taş' } };
+let buildOn = false, buildKind = 'fence', dragStart = null, hoverCell = null, hoverPt = null;
+const ghost = new THREE.Group(); island.add(ghost);
+const okMat = new THREE.MeshBasicMaterial({ color: 0x6CE07A, transparent: true, opacity: 0.42, depthWrite: false });
+const badMat = new THREE.MeshBasicMaterial({ color: 0xFF5A4A, transparent: true, opacity: 0.48, depthWrite: false });
+const ghostMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, depthWrite: false });
+const quadGeo = new THREE.PlaneGeometry(0.92, 0.92).rotateX(-Math.PI / 2);
+const ghostModels = { tower: makeTower(PAL.p1), lantern: makeLantern({ light: false, glow: false }), fence: makeFenceCell(3, 1) };
+Object.values(ghostModels).forEach(g => { g.traverse(o => { if (o.isMesh) { o.material = ghostMat; o.castShadow = false; } if (o.isLight) o.intensity = 0; }); });
+const tip = document.createElement('div'); tip.className = 'pop build-tip'; tip.style.display = 'none'; document.body.appendChild(tip);
+function footprint(kind, x, z) {
+  if (kind === 'tower') { const ci = Math.round(x + HALF), cj = Math.round(z + HALF); return [[ci - 1, cj - 1], [ci, cj - 1], [ci - 1, cj], [ci, cj]]; }
+  if (kind === 'fence' && dragStart) {
+    const [a, b] = [dragStart, cellOf(x, z)], di = b[0] - a[0], dj = b[1] - a[1], out = [];
+    if (Math.abs(di) >= Math.abs(dj)) for (let k = 0; k <= Math.abs(di); k++) out.push([a[0] + Math.sign(di) * k, a[1]]);
+    else for (let k = 0; k <= Math.abs(dj); k++) out.push([a[0], a[1] + Math.sign(dj) * k]);
+    return out;
+  }
+  return [cellOf(x, z)];
+}
+function evaluate(kind, cells) {
+  const first = cells[0], lv = inGrid(...first) ? level[cidx(...first)] : 0;
+  return cells.map(([i, j]) => ({ i, j, issue: cellIssue(i, j, kind === 'fence' ? undefined : lv) }));
+}
+function drawGhost() {
+  ghost.clear();
+  if (!buildOn || !hoverPt || view !== 'island') { tip.style.display = 'none'; return; }
+  const cells = evaluate(buildKind, footprint(buildKind, hoverPt.x, hoverPt.z));
+  const allOk = cells.every(c => !c.issue);
+  for (const c of cells) { if (!inGrid(c.i, c.j)) continue; const [x, z] = cellCenter(c.i, c.j); const q = new THREE.Mesh(quadGeo, c.issue ? badMat : okMat); q.position.set(x, heightAt(x, z) + 0.05, z); q.renderOrder = 6; ghost.add(q); }
+  ghostMat.color.set(allOk ? 0xB8F5C0 : 0xFFB0A8);
+  const fp = cells.filter(c => inGrid(c.i, c.j));
+  if (fp.length) {
+    if (buildKind === 'fence') fp.forEach(c => { const g = ghostModels.fence.clone(); g.position.set(...(([x, z]) => [x, heightAt(x, z), z])(cellCenter(c.i, c.j))); ghost.add(g); });
+    else { const cx = fp.reduce((a, c) => a + cellCenter(c.i, c.j)[0], 0) / fp.length, cz = fp.reduce((a, c) => a + cellCenter(c.i, c.j)[1], 0) / fp.length; const g = ghostModels[buildKind]; g.position.set(cx, heightAt(cx, cz), cz); ghost.add(g); }
+  }
+  const bad = cells.find(c => c.issue), okCount = cells.filter(c => !c.issue).length;
+  tip.innerHTML = bad && buildKind !== 'fence' ? `<span style="color:#ff9b8b">${bad.issue}</span>`
+    : bad ? `${okCount} hücre konur · <span style="color:#ff9b8b">${cells.length - okCount} engelli: ${bad.issue}</span>`
+    : `${BUILD[buildKind].name} · ${BUILD[buildKind].cost}`;
+  tip.style.display = 'flex';
+}
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+canvas.addEventListener('pointermove', (e) => {
+  if (!buildOn) return;
+  ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
+  const hit = ray.intersectObject(terrainMesh, false)[0];
+  hoverPt = hit ? hit.point : null;
+  tip.style.left = e.clientX + 'px'; tip.style.top = e.clientY - 18 + 'px';
+  drawGhost();
+});
+canvas.addEventListener('pointerdown', (e) => {
+  if (!buildOn || e.button !== 0 || !hoverPt) return;
+  if (buildKind === 'fence') { dragStart = cellOf(hoverPt.x, hoverPt.z); drawGhost(); return; }
+  const cells = evaluate(buildKind, footprint(buildKind, hoverPt.x, hoverPt.z));
+  if (cells.some(c => c.issue)) return;
+  const cx = cells.reduce((a, c) => a + cellCenter(c.i, c.j)[0], 0) / cells.length, cz = cells.reduce((a, c) => a + cellCenter(c.i, c.j)[1], 0) / cells.length;
+  const obj = buildKind === 'tower' ? reg(makeTower(PAL.p2)) : makeLantern({ light: false });
+  place(obj, cx, cz, buildKind === 'tower' ? Math.PI / 4 : 0); occupy(cells.map(c => [c.i, c.j]), 'building');
+  spawnPuff(cx, heightAt(cx, cz), cz, buildKind === 'tower' ? 1.6 : 0.8); drawGhost();
+});
+addEventListener('pointerup', () => {
+  if (!buildOn || !dragStart || !hoverPt) { dragStart = null; return; }
+  const cells = evaluate('fence', footprint('fence', hoverPt.x, hoverPt.z)).filter(c => !c.issue).map(c => [c.i, c.j]);
+  dragStart = null;
+  if (cells.length) { addFences(cells); cells.forEach(([i, j]) => { const [x, z] = cellCenter(i, j); spawnPuff(x, heightAt(x, z), z, 0.5); }); }
+  drawGhost();
+});
+addEventListener('keydown', (e) => {
+  if (!buildOn) return;
+  const k = { '1': 'fence', '2': 'tower', '3': 'lantern' }[e.key];
+  if (k) { buildKind = k; dragStart = null; renderBuildBar(); drawGhost(); }
+  if (e.key === 'Escape') { dragStart = null; drawGhost(); }
+});
+function renderBuildBar() {
+  document.getElementById('buildBar').innerHTML = Object.entries(BUILD).map(([k, b], n) =>
+    `<button class="chip${k === buildKind ? ' on' : ''}" data-kind="${k}"><b>${n + 1}</b>${b.name}</button>`).join('') + '<span class="bb-hint">Çit: sürükle · Esc: iptal</span>';
+  document.querySelectorAll('#buildBar [data-kind]').forEach(b => b.addEventListener('click', () => { buildKind = b.dataset.kind; renderBuildBar(); }));
+}
+function setBuild(on) {
+  buildOn = on; gridLines.visible = on; controls.enableRotate = !on; dragStart = null;
+  document.getElementById('buildBar').style.display = on ? 'flex' : 'none';
+  document.getElementById('noteText').innerHTML = on
+    ? '<b>Yerleştirme kuralları</b>Bina sadece <u>aynı kattaki</u> boş hücrelere konur. Ağaç, kaya ve çalı önce temizlenir. Rampalar, su, ıslak kum ve Ocak çevresi kapalı. Yarlar yürünmez; katlar arası geçiş açık renkli rampalardan.'
+    : '<b>Kaynak döngüsü</b>Ağaç ve taş sayısı sabit. Biri bitince adada rastgele boş bir hücrede yenisi büyür. Oduncu en yakın ağaca yarları dolaşıp rampadan yürür.';
+  renderBuildBar(); drawGhost();
+}
 // walkers & idlers
 const walker = reg(makeVillager({ color: PAL.p1, hat: 'beanie', seed: 1 })); walker.userData.state = 'walk'; island.add(walker);
-const carrier = reg(makeVillager({ color: PAL.p2, hat: 'straw', seed: 2, carry: true })); carrier.userData.state = 'walk'; island.add(carrier);
+const carrier = reg(makeVillager({ color: PAL.p2, hat: 'straw', seed: 2, carry: true })); place(carrier, -3.2, 2.7, 0.5);
 const waver = reg(makeVillager({ color: PAL.p4, hat: 'beanie2', seed: 4 })); waver.userData.state = 'wave';
 { const [x, z] = polar(85, 2.6); place(waver, x, z, Math.atan2(-x, -z) + 0.9); }
 updaters.push((t) => {
   const a1 = t * 0.35, x1 = Math.cos(a1) * 2.55, z1 = Math.sin(a1) * 2.55; walker.position.set(x1, PLAZA_H, z1); walker.rotation.y = Math.atan2(-Math.sin(a1), Math.cos(a1));
-  const a2 = -t * 0.28 + 2, x2 = Math.cos(a2) * 3.9, z2 = Math.sin(a2) * 3.9; carrier.position.set(x2, heightAt(x2, z2), z2); carrier.rotation.y = Math.atan2(Math.sin(a2), -Math.cos(a2));
 });
 // night attackers from the beach side
 for (let i = 0; i < 6; i++) { const d = 250 + i * 10 + (R() - 0.5) * 6, rr = 6.0 + R() * 1.6, [x, z] = polar(d, rr); const m = reg(makeGolgecik(i + 1)); place(m, x, z, Math.atan2(-x, -z)); m.scale.setScalar(0.9 + R() * 0.25); }
@@ -1132,7 +1420,7 @@ const SHOW = [
   ['Ocak', 'Yapı · kalbiniz', () => makeOcak()],
   ['Ok Kulesi', 'Yapı · otomatik atış', () => makeTower(PAL.p2)],
   ['Fener', 'Yapı · ışık alanı', () => makeLantern()],
-  ['Çit', 'Yapı · yolu keser', () => makeFence(3)],
+  ['Çit', 'Yapı · hücre başına, birleşir', () => { const g = new THREE.Group(); [[1, -0.9, 0], [3, 0, 0], [6, 0.9, 0], [8, 0.9, 0.9]].forEach(([m, x, z], n) => { const f = makeFenceCell(m, n); f.position.set(x, 0, z); g.add(f); }); return g; }],
   ['Çam', 'Doğa · odun', () => makePine(3, 1)],
   ['Meşe', 'Doğa · odun', () => makeOak(5, 1)],
   ['Çalı', 'Doğa · süs', () => makeBush(2)],
@@ -1227,6 +1515,7 @@ const toggles = {
   ao: (on) => { gtao.enabled = on; }, bloom: (on) => { bloom.enabled = on; },
   tilt: (on) => { tiltOn = on; applyTilt(); }, shadows: (on) => { sun.castShadow = on; },
   hud: (on) => { document.getElementById('hudLive').classList.toggle('on', on); },
+  build: (on) => setBuild(on),
 };
 document.querySelectorAll('.tog').forEach(el => el.addEventListener('click', () => { el.classList.toggle('on'); toggles[el.dataset.k](el.classList.contains('on')); }));
 const hudTpl = document.getElementById('hudTpl').innerHTML;
@@ -1240,7 +1529,7 @@ addEventListener('resize', () => {
 });
 
 // debug bridge (same idea as window.__game in the real project)
-window.__kit = { setTime: (t) => { tod = t; todInput.value = t * 1000; }, setView, renderer, scene, camera, toggles, get night() { return night; }, res: () => ({ trees: trees.length, rocks: rocks.length, chop: chopPhase, at: chopper.position.toArray().map(v => +v.toFixed(1)) }) };
+window.__kit = { setTime: (t) => { tod = t; todInput.value = t * 1000; }, setView, renderer, scene, camera, toggles, get night() { return night; }, setBuild: (on) => setBuild(on), cell: (x, z) => { const [i, j] = cellOf(x, z), c = cidx(i, j); return { i, j, level: level[c], ramp: ramp[c], occ: occ[c], issue: cellIssue(i, j) }; }, res: () => ({ trees: trees.length, rocks: rocks.length, chop: chopPhase, at: chopper.position.toArray().map(v => +v.toFixed(1)) }) };
 
 // ───────────────────────── loop ─────────────────────────
 setView('island');
