@@ -18,7 +18,8 @@ export function createHttpHandler(cfg: ServerConfig, devLog: Route | null) {
       json(res, 200, { ok: true, version: cfg.version, mode: cfg.mode });
       return;
     }
-    if (pathname === '/__log' && req.method === 'POST' && devLog) return devLog(req, res);
+    if (process.env.NODE_ENV !== 'production' && pathname === '/__log' && req.method === 'POST' && devLog)
+      return devLog(req, res);
     // Statik servis (ve SPA fallback) sadece GET/HEAD; diğer her şey açıkça 404.
     if (req.method !== 'GET' && req.method !== 'HEAD') return json(res, 404, { error: 'not_found' });
     if (assets) {

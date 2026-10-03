@@ -135,6 +135,25 @@ describe('HTTP', () => {
   });
 });
 
+describe('startServer', () => {
+  it('dolu port startServer çağrısını reddeder, yakalanmamış hata olmaz', async () => {
+    const { cfg } = await boot();
+    const uncaught: unknown[] = [];
+    const onUncaught = (e: unknown) => uncaught.push(e);
+    process.on('uncaughtException', onUncaught);
+    try {
+      const taken = { ...cfg, port: running?.port ?? 0 };
+      await expect(startServer(taken, createLogger(taken, { stdout: silent }))).rejects.toMatchObject({
+        code: 'EADDRINUSE',
+      });
+      await new Promise((r) => setTimeout(r, 50));
+      expect(uncaught).toEqual([]);
+    } finally {
+      process.off('uncaughtException', onUncaught);
+    }
+  });
+});
+
 describe('WebSocket', () => {
   it('doğru sürümle hello → welcome', async () => {
     const { wsUrl } = await boot();
