@@ -58,6 +58,7 @@ describe('generateIsland', () => {
       const g = generateIsland(seed);
       const land = landCells(g).length;
       const hills = g.level.filter((l) => l === LEVEL_HILL).length;
+      // Island generator is identical to the user-approved asset kit (~1000–1200 land cells); the plan's 1200 estimate was revised (controller ruling).
       expect(land).toBeGreaterThan(900);
       expect(land).toBeLessThan(2400);
       expect(hills).toBeLessThan(land * 0.1);
@@ -125,12 +126,22 @@ describe('canStep', () => {
   it('zemin→zemin serbest, su kapalı', () => {
     const a = cidx(32, 34);
     expect(canStep(g, a, cidx(32, 35))).toBe(true);
-    const water = g.level.findIndex((l) => l === WATER);
+    const water = g.level.findIndex(
+      (l, c) =>
+        l === WATER &&
+        DIRS.some(([dx, dz]) => {
+          const [i, j] = cellCoords(c);
+          return inGrid(i + dx, j + dz) && g.level[cidx(i + dx, j + dz)] !== WATER;
+        }),
+    );
+    expect(water).toBeGreaterThanOrEqual(0);
     const [wi, wj] = cellCoords(water);
     const landNeighbor = DIRS.map(([dx, dz]) => [wi + dx, wj + dz] as const).find(
       ([i, j]) => inGrid(i, j) && g.level[cidx(i, j)] !== WATER,
     );
-    if (landNeighbor) expect(canStep(g, cidx(landNeighbor[0], landNeighbor[1]), water)).toBe(false);
+    expect(landNeighbor).toBeDefined();
+    expect(canStep(g, cidx(landNeighbor![0], landNeighbor![1]), water)).toBe(false);
+    expect(canStep(g, water, cidx(landNeighbor![0], landNeighbor![1]))).toBe(false);
   });
   it('rampa yönünde tepeye çıkılır, geriye zemine inilir, yanlara çıkılmaz', () => {
     const up = cidx(ri + r.dx, rj + r.dz);
@@ -139,8 +150,18 @@ describe('canStep', () => {
     expect(canStep(g, rampCell, up)).toBe(true);
     expect(canStep(g, up, rampCell)).toBe(true);
     expect(canStep(g, back, rampCell)).toBe(true);
-    const side = cidx(ri + r.dz, rj + r.dx);
-    if (!g.ramp[side]) expect(canStep(g, rampCell, side)).toBe(false);
+    // Yan hücre rampa olmayan, kara bir ramp hücresi ara (sabit tarama sırası).
+    const sideRamp = g.ramp.findIndex((rr, c) => {
+      if (!rr) return false;
+      const [i, j] = cellCoords(c);
+      const si = i + rr.dz;
+      const sj = j + rr.dx;
+      return inGrid(si, sj) && !g.ramp[cidx(si, sj)] && g.level[cidx(si, sj)] !== WATER;
+    });
+    expect(sideRamp).toBeGreaterThanOrEqual(0);
+    const sr = g.ramp[sideRamp]!;
+    const [si0, sj0] = cellCoords(sideRamp);
+    expect(canStep(g, sideRamp, cidx(si0 + sr.dz, sj0 + sr.dx))).toBe(false);
   });
   it('yar: rampasız zemin→tepe geçilmez', () => {
     let checked = 0;
