@@ -200,3 +200,29 @@ describe('fener etkisi ve ayrışma', () => {
     expect(inLanternLight(s, 6.5, 5.5)).toBe(false);
   });
 });
+
+describe('oyuncu–yaratık temas çözümü', () => {
+  it('oyuncu duvara dayalıyken yaratık iterse artık nüfuz kalmaz', () => {
+    const s = createGame(1);
+    const pid = ids(s.players)[0]!;
+    const p = s.players[pid]!;
+    for (let j = 34; j <= 37; j++) addBuilding(s, 'fence', 35, j, 0); // x 3..4, z 2..6 duvarı
+    p.x = 3 - PLAYER.radius - 0.001;
+    p.z = 4.5;
+    const c = spawnCreature(s, 'stumpkin', p.x - 0.6, p.z);
+    const minD = PLAYER.radius + CREATURES.stumpkin.radius;
+    updateCreatures(s, []);
+    expect(Math.hypot(c.x - p.x, c.z - p.z)).toBeGreaterThanOrEqual(minD - 0.02);
+    expect(p.x).toBeLessThanOrEqual(3 - PLAYER.radius + 1e-6);
+  });
+  it('oyuncunun iki yanındaki yaratıklar: ikisiyle de örtüşme kalmaz', () => {
+    const s = createGame(1);
+    const p = s.players[ids(s.players)[0]!]!;
+    const a = spawnCreature(s, 'stumpkin', p.x - 0.6, p.z);
+    const b = spawnCreature(s, 'stumpkin', p.x + 0.6, p.z + 0.05);
+    const minD = PLAYER.radius + CREATURES.stumpkin.radius;
+    updateCreatures(s, []);
+    expect(Math.hypot(a.x - p.x, a.z - p.z)).toBeGreaterThanOrEqual(minD - 0.02);
+    expect(Math.hypot(b.x - p.x, b.z - p.z)).toBeGreaterThanOrEqual(minD - 0.02);
+  });
+});

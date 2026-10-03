@@ -29,3 +29,5 @@ export const SEPARATION = {
 export const CONTACT_MARGIN = 0.05;
 /** Kovalayan Shadeling istediği yolun bu oranından azını gidebildiyse engellenmiş sayılır → flow alanına düşer. */
 export const CHASE_BLOCKED_FRACTION = 0.25;
+/** Oyuncu–yaratık temas çözümünde tick başına en fazla geçiş sayısı. */
+export const CONTACT_PASSES = 3;
