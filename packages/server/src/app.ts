@@ -32,7 +32,22 @@ export async function startServer(
     });
   });
   const wss = attachWebSocket(server, log, opts);
-  await new Promise<void>((resolve) => server.listen(cfg.port, resolve));
+  try {
+    await new Promise<void>((resolve, reject) => {
+      // ws, http sunucusunun 'error' olayını yeniden yayar; ikisini de dinle ki yakalanmamış hata olmasın.
+      server.once('error', reject);
+      wss.once('error', reject);
+      server.listen(cfg.port, () => {
+        server.off('error', reject);
+        wss.off('error', reject);
+        resolve();
+      });
+    });
+  } catch (err) {
+    wss.close();
+    server.close();
+    throw err;
+  }
   const { port } = server.address() as AddressInfo;
   log.info({ port, mode: cfg.mode, version: cfg.version }, 'sunucu hazır');
   return {
