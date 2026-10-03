@@ -9,8 +9,10 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@gg/assets": "workspace:*",
     "@gg/devtools": "workspace:*",
     "@gg/protocol": "workspace:*",
+    "@gg/sim": "workspace:*",
     "three": "0.186.1"
   },
   "devDependencies": {
