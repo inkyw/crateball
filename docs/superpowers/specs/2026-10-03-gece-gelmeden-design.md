@@ -59,18 +59,21 @@ Lobi → [Gündüz 90 sn → Gece ~75 sn → Şafak kartı 15 sn] × 7 → Sonu�
 ### 3.1.1 Arazi ve yerleşim kuralları
 
 - **Izgara tek gerçek kaynaktır.** Dünya 1×1 birimlik hücrelerden oluşur. Her hücrenin bir **katı** vardır:
-  su, 0 (kumsal), 1 (çayır), 2 (yayla); en fazla 3 kara katı. 3D arazi mesh'i bu ızgaradan üretilir;
-  görülen yarlar sadece hücre kenarlarındadır, yani görüntü ile kurallar birebir aynıdır.
-- Üretim: sürekli gürültü alanından kat seçimi → çoğunluk filtresi (lekesiz bölgeler) → kıyı her zaman
-  kumsal, komşu hücreler arasında en fazla 1 kat fark → her yükseltinin çevresine 1–4 adet, 3 hücre genişliğinde
-  **rampa** (bölge büyüklüğüne göre, çevresine yayılmış). Meydan (yarıçap ~7) daima kat 1.
-- **Hareket:** Aynı kattaki komşu hücreler arası serbest; **yarlar yürünmez**; katlar arası geçiş sadece
-  rampalardan, rampanın yönünde. Oyuncu, yaratık ve yol bulma aynı kuralı kullanır. Rampalar haritada açık
-  renkli patika olarak görünür (okunabilirlik).
+  su, 1 (zemin) veya 2 (tepe). 3D arazi mesh'i bu ızgaradan üretilir; görülen yarlar sadece hücre
+  kenarlarındadır, yani görüntü ile kurallar birebir aynıdır.
+- **Ada büyük ölçüde düzdür:** oynanan alanın neredeyse tamamı tek zemin katıdır. Kumsal yar değil, sudan
+  zemine yumuşak bir eğimdir (kıyıdan ~3 hücre). Zemin üzerinde seed'li 4–5 adet **küçük tepe**
+  (3–6 hücre çapında, ~0.55 birim yüksek) vardır; her tepenin tek, 3 hücre genişliğinde bir **rampası** olur.
+  Meydan (yarıçap ~7) daima zemin katıdır ve tepe meydana 1 hücreden yakın olamaz.
+- **Hareket:** Zemin üzerinde serbest; **tepe yarları yürünmez**; tepeye çıkış sadece rampadan, rampanın
+  yönünde. Oyuncu, yaratık ve yol bulma aynı kuralı kullanır. Rampalar açık renkli patika olarak görünür.
 - **Bina yerleştirme:** Bina ayak izindeki tüm hücreler **aynı katta** ve boş olmalı. Kapalı hücreler: su,
-  ıslak kum (suya < 2 hücre), rampa, Ocak çevresi (yarıçap ~2.6), ağaç/kaya/çalı/bina olan hücre.
+  kumsal dalga çizgisi (suya < 2 hücre), rampa, Ocak çevresi (yarıçap ~2.6), ağaç/kaya/çalı/bina olan hücre.
   Ağaç ve kaya önce kesilir/kırılır ("alan açma"). Çitler tek tek hücre bazlı olduğu için katlar arasında
   devam edebilir; kule ve fener tek kat.
+- **Döndürme:** Her bina 0°/90°/180°/270° yönlenebilir (`R` saat yönü, `Shift+R` ters). Ayak izi dönüşle
+  birlikte döner (kare olmayan binalar için; v1 binaları kare olduğundan görsel yönü değiştirir: merdiven,
+  fener kolu vb.). Tek başına konan çitin yönü de döner; sürüklenen çit hattının yönünü hat belirler.
 - **Yerleştirme arayüzü:** İnşa modunda ızgara çizgileri görünür; ayak izi hücreleri yeşil/kırmızı yanar ve
   imleç yanında neden yazar ("Ağaç var — önce kes", "Farklı kat — yar kenarı", "Rampa — yol açık kalmalı"
   vb.). Çit: tıkla-sürükle ile düz hat; engelli hücreler atlanır.
@@ -79,7 +82,7 @@ Lobi → [Gündüz 90 sn → Gece ~75 sn → Şafak kartı 15 sn] × 7 → Sonu�
 
 - WASD hareket, fare ile nişan. Kamera izometrik, yerel oyuncuyu yumuşak takip eder, zoom sınırlı, v1'de döndürme yok.
 - **Balta** (tek alet): Sol tık → önündeki hedefe vurur. Ağaç → odun, kaya → taş, yaratık → hasar.
-- **İnşa:** `1–3` ile bina seç, hayalet önizleme farenin altında, sol tık yerleştir, sağ tık/Esc iptal.
+- **İnşa:** `1–3` ile bina seç, `R`/`Shift+R` ile döndür, hayalet önizleme farenin altında, sol tık yerleştir, sağ tık/Esc iptal.
   Geçerli/geçersiz konum renkle gösterilir. Kaynaklar **takımca ortak**.
 - **Düşme / kaldırma:** Can 0 → oyuncu yere yığılır (ölmez). Bir takım arkadaşı yanında `E`'yi
   2 sn basılı tutarsa kalkar. Kimse kaldırmazsa şafakta Ocak yanında yeniden doğar.

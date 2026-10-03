@@ -255,7 +255,7 @@
   <span id="todLabel">10:05 · Gündüz</span>
 </div>
 
-<div id="note" class="panel"><div id="noteText"><b>Kaynak döngüsü</b>Ağaç ve taş sayısı sabit. Biri bitince adada rastgele boş bir hücrede yenisi büyür. Oduncu en yakın ağaca yarları dolaşıp rampadan yürür.</div></div>
+<div id="note" class="panel"><div id="noteText"><b>Kaynak döngüsü</b>Ağaç ve taş sayısı sabit. Biri bitince adada rastgele boş bir hücrede yenisi büyür. Oduncu en yakın ağaca yol bularak yürür.</div></div>
 <div id="buildBar" class="panel"></div>
 
 <!-- live HUD over diorama -->
@@ -511,7 +511,7 @@ function makeGlow(size, color, base = 0.9) {
 
 // ───────────────────────── terrain: a grid of levels is the source of truth; the mesh is drawn from it ─────────────────────────
 const T_SIZE = 64, NC = 64, HALF = 32, SUB = 4, ISLAND_R = 22, PLAZA_R = 7;
-const LEVEL_H = [0.3, 1.05, 1.8], PLAZA_H = LEVEL_H[1], WATER = -1;
+const LEVEL_H = [0.3, 1.05, 1.6], PLAZA_H = LEVEL_H[1], WATER = -1;
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const cidx = (i, j) => j * NC + i;
 const inGrid = (i, j) => i >= 0 && j >= 0 && i < NC && j < NC;
@@ -536,7 +536,7 @@ function bfsDistance(out, isSource) {
 (function buildLevels() {
   for (let j = 0; j < NC; j++) for (let i = 0; i < NC; i++) {
     const [x, z] = cellCenter(i, j), h = rawHeight(x, z);
-    level[cidx(i, j)] = Math.hypot(x, z) < PLAZA_R ? 1 : h < 0.02 ? WATER : h < 0.6 ? 0 : h < 1.5 ? 1 : 2;
+    level[cidx(i, j)] = Math.hypot(x, z) < PLAZA_R || h >= 0.02 ? 1 : WATER;
   }
   // majority filter so level regions are blobby, not speckled
   for (let pass = 0; pass < 2; pass++) {
@@ -548,22 +548,25 @@ function bfsDistance(out, isSource) {
       const best = cnt.indexOf(Math.max(...cnt)); if (cnt[best] >= 5) level[cidx(i, j)] = best - 1;
     }
   }
-  // shore is always beach; neighbouring cells differ by at most one level
-  for (let changed = true; changed;) {
-    changed = false;
-    for (let j = 0; j < NC; j++) for (let i = 0; i < NC; i++) {
-      const c = cidx(i, j), L = level[c]; if (L <= 0) continue;
-      for (const [dx, dz] of DIRS) {
-        if (!inGrid(i + dx, j + dz)) continue; const nL = level[cidx(i + dx, j + dz)];
-        if ((nL === WATER && L > 0) || (nL >= 0 && L - nL > 1)) { level[c] = nL === WATER ? 0 : L - 1; changed = true; break; }
-      }
-    }
-  }
   bfsDistance(dWater, (c) => level[c] === WATER);
   bfsDistance(dLand, (c) => level[c] !== WATER);
+  // the island is one flat playable level; only a few small hills rise above it
+  const H = rng(99);
+  for (let n = 0, tries = 0; n < 5 && tries < 300; tries++) {
+    const a = H() * Math.PI * 2, d = 9 + H() * 8, [ci, cj] = cellOf(Math.cos(a) * d, Math.sin(a) * d);
+    if (!inGrid(ci, cj) || level[cidx(ci, cj)] !== 1 || dWater[cidx(ci, cj)] < 5) continue;
+    const rad = 1.6 + H() * 1.3; let placed = 0;
+    for (let dj = -4; dj <= 4; dj++) for (let di = -4; di <= 4; di++) {
+      const i = ci + di, j = cj + dj; if (!inGrid(i, j)) continue;
+      const c = cidx(i, j), [x, z] = cellCenter(i, j);
+      if (level[c] !== 1 || dWater[c] < 3 || Math.hypot(x, z) < PLAZA_R + 1) continue;
+      if (Math.hypot(di, dj) + (vnoise(x * 0.9, z * 0.9, 61) - 0.5) * 1.2 <= rad) { level[c] = 2; placed++; }
+    }
+    if (placed) n++;
+  }
   // ramps: every raised region gets 1–4 ramps (3 cells wide), spread around it
   const R = rng(777);
-  for (const k of [0, 1]) {
+  for (const k of [1]) {
     const seen = new Uint8Array(NC * NC);
     for (let s = 0; s < NC * NC; s++) {
       if (seen[s] || level[s] !== k + 1) continue;
@@ -614,8 +617,8 @@ function cellHeight(i, j, x, z) {
   if (L === WATER) return -0.15 - 1.5 * smoothstep(0.5, 5, sampleField(dLand, x, z));
   const rp = ramp[c];
   if (rp) { const [cx, cz] = cellCenter(i, j); const t = (x - cx) * rp.d[0] + (z - cz) * rp.d[1] + 0.5; return lerp(LEVEL_H[rp.k], LEVEL_H[rp.k + 1], Math.min(1, Math.max(0, t))); }
-  if (L === 0) return lerp(-0.12, LEVEL_H[0], smoothstep(0.2, 2.2, sampleField(dWater, x, z)));
-  return LEVEL_H[L] + (Math.hypot(x, z) > PLAZA_R - 1 ? (vnoise(x * 1.3, z * 1.3, 3) - 0.5) * 0.05 : 0);
+  const base = LEVEL_H[L] + (Math.hypot(x, z) > PLAZA_R - 1 ? (vnoise(x * 1.3, z * 1.3, 3) - 0.5) * 0.05 : 0);
+  return L === 1 ? lerp(-0.12, base, smoothstep(0.2, 3.2, sampleField(dWater, x, z))) : base; // beach is a gentle slope, not a cliff
 }
 const VN = NC * SUB + 1, VH = new Float32Array(VN * VN);
 for (let vj = 0; vj < VN; vj++) for (let vi = 0; vi < VN; vi++) {
@@ -654,7 +657,7 @@ function buildTerrain() {
     if (cy < -0.06) col.set(PAL.seabed).lerp(tmp.set(PAL.sandDark), smoothstep(-1.3, -0.05, cy));
     else if (ny < 0.6) col.set(Math.floor((cy + 3) * 3.4) % 2 ? PAL.cliff : PAL.cliffDark);
     else if (ramp[cell]) col.set(PAL.dirt).lerp(tmp.set(PAL.sand), 0.3);
-    else if (L <= 0) col.set(PAL.sand).lerp(tmp.set(PAL.sandDark), smoothstep(0.14, -0.04, cy));
+    else if (L <= 1 && sampleField(dWater, cx, cz) < 2.3 + (vnoise(cx * 0.8, cz * 0.8, 9) - 0.5) * 0.9) col.set(PAL.sand).lerp(tmp.set(PAL.sandDark), smoothstep(0.14, -0.04, cy));
     else {
       const g = fbm(cx * 0.22, cz * 0.22, 11, 3);
       col.set(PAL.grassDark).lerp(tmp.set(PAL.grass), smoothstep(0.3, 0.5, g)).lerp(tmp.set(PAL.grassLight), smoothstep(0.55, 0.75, g));
@@ -784,12 +787,12 @@ function makeCloud(seed) {
 
 // ───────────────────────── buildings ─────────────────────────
 // one fence per grid cell: centre post, rails reach toward each fenced neighbour (bits: +x, -x, +z, -z)
-function makeFenceCell(mask, seed = 1) {
+function makeFenceCell(mask, seed = 1, alongZ = false) {
   const R = rng(seed + 1), g = new THREE.Group(), wood = M(PAL.wood), woodL = M(PAL.woodLight), woodD = M(PAL.woodDark);
   const post = mesh(new RoundedBoxGeometry(0.15, 0.85, 0.15, 2, 0.03), wood, 0, 0.42, 0, g); post.rotation.y = (R() - 0.5) * 0.3;
   const tip = mesh(new THREE.ConeGeometry(0.105, 0.18, 4), wood, 0, 0.93, 0, g); tip.rotation.y = Math.PI / 4;
   const rope = mesh(new THREE.TorusGeometry(0.095, 0.022, 6, 14), woodD, 0, 0.62, 0, g); rope.rotation.x = Math.PI / 2;
-  const arms = mask ? DIRS.filter((_, b) => mask & (1 << b)) : [[1, 0], [-1, 0]], len = mask ? 0.52 : 0.3;
+  const arms = mask ? DIRS.filter((_, b) => mask & (1 << b)) : alongZ ? [[0, 1], [0, -1]] : [[1, 0], [-1, 0]], len = mask ? 0.52 : 0.3;
   for (const [dx, dz] of arms) for (const y of [0.32, 0.62]) {
     const geo = dx ? new RoundedBoxGeometry(len, 0.13, 0.06, 2, 0.025) : new RoundedBoxGeometry(0.06, 0.13, len, 2, 0.025);
     mesh(geo, y > 0.5 ? woodL : wood, dx * len / 2, y + (R() - 0.5) * 0.03, dz * len / 2, g);
@@ -1086,7 +1089,7 @@ function cellIssue(i, j, needLevel) {
   if (!inGrid(i, j)) return 'Harita dışı';
   const c = cidx(i, j), L = level[c];
   if (L === WATER) return 'Su';
-  if (L === 0 && dWater[c] < 2) return 'Islak kum';
+  if (dWater[c] < 2) return 'Kumsal — dalga çizgisi';
   if (ramp[c]) return 'Rampa — yol açık kalmalı';
   const [x, z] = cellCenter(i, j); if (Math.hypot(x, z) < OCAK_SAFE) return 'Ocak alanı';
   if (occ[c]) return ISSUE[occ[c]] || 'Dolu';
@@ -1108,14 +1111,14 @@ function randomFreeCell(rand, { minR = 7.5, maxR = ISLAND_R - 2, gap = 1 } = {})
 }
 
 // fences: one per cell, rails auto-join to neighbouring fences
-const fenceMeshes = new Map();
+const fenceMeshes = new Map(), fenceAlongZ = new Map();
 function refreshFence(i, j) {
   if (!inGrid(i, j)) return;
   const c = cidx(i, j), old = fenceMeshes.get(c);
   if (old) { island.remove(old); fenceMeshes.delete(c); }
   if (occ[c] !== 'fence') return;
   let mask = 0; DIRS.forEach(([dx, dz], b) => { if (occAt(i + dx, j + dz) === 'fence') mask |= 1 << b; });
-  const g = makeFenceCell(mask, c); place(g, ...cellCenter(i, j)); fenceMeshes.set(c, g);
+  const g = makeFenceCell(mask, c, fenceAlongZ.get(c)); place(g, ...cellCenter(i, j)); fenceMeshes.set(c, g);
 }
 function addFences(cells) {
   occupy(cells, 'fence');
@@ -1125,7 +1128,7 @@ function addFences(cells) {
 // plaza
 const ocak = reg(place(makeOcak(), 0, 0)); occupy([[31, 31], [32, 31], [31, 32], [32, 32]], 'building');
 [60, 180, 300].forEach((d, i) => { const [x, z] = polar(d, 1.9); place(makeBench(i + 3), x, z, -d * Math.PI / 180 + Math.PI / 2); });
-reg(place(makeTower(PAL.p1), -2, -2, Math.PI / 4)); occupy([[29, 29], [30, 29], [29, 30], [30, 30]], 'building');
+reg(place(makeTower(PAL.p1), -2, -2, 0)); occupy([[29, 29], [30, 29], [29, 30], [30, 30]], 'building');
 const lanterns = [[2.5, 1.5, -0.35], [-1.5, 2.5, -1.95], [2.5, -1.5, 0.52]].map(([x, z, r]) => { const [i, j] = cellOf(x, z); occupy([[i, j]], 'building'); return place(makeLantern(), x, z, r); });
 place(makeWoodPile(), -3, 1.5); occupy([cellOf(-3.5, 1.5), cellOf(-2.5, 1.5)], 'building');
 place(makeStonePile(), -0.5, -2.5); occupy([cellOf(-0.5, -2.5)], 'building');
@@ -1268,7 +1271,7 @@ updaters.push((t, dt) => {
 
 // build mode: hover shows the footprint green/red with the reason; fences drag into straight lines
 const BUILD = { fence: { name: 'Çit', cost: '5 odun / hücre' }, tower: { name: 'Ok Kulesi', cost: '12 odun · 6 taş' }, lantern: { name: 'Fener', cost: '4 odun · 2 taş' } };
-let buildOn = false, buildKind = 'fence', dragStart = null, hoverCell = null, hoverPt = null;
+let buildOn = false, buildKind = 'fence', dragStart = null, hoverPt = null, buildRot = 0; // rotation in quarter turns
 const ghost = new THREE.Group(); island.add(ghost);
 const okMat = new THREE.MeshBasicMaterial({ color: 0x6CE07A, transparent: true, opacity: 0.42, depthWrite: false });
 const badMat = new THREE.MeshBasicMaterial({ color: 0xFF5A4A, transparent: true, opacity: 0.48, depthWrite: false });
@@ -1300,8 +1303,10 @@ function drawGhost() {
   ghostMat.color.set(allOk ? 0xB8F5C0 : 0xFFB0A8);
   const fp = cells.filter(c => inGrid(c.i, c.j));
   if (fp.length) {
-    if (buildKind === 'fence') fp.forEach(c => { const g = ghostModels.fence.clone(); g.position.set(...(([x, z]) => [x, heightAt(x, z), z])(cellCenter(c.i, c.j))); ghost.add(g); });
-    else { const cx = fp.reduce((a, c) => a + cellCenter(c.i, c.j)[0], 0) / fp.length, cz = fp.reduce((a, c) => a + cellCenter(c.i, c.j)[1], 0) / fp.length; const g = ghostModels[buildKind]; g.position.set(cx, heightAt(cx, cz), cz); ghost.add(g); }
+    if (buildKind === 'fence') {
+      const alongZ = fp.length > 1 ? fp[0].i === fp[fp.length - 1].i : buildRot % 2 === 1;
+      fp.forEach(c => { const g = ghostModels.fence.clone(), [x, z] = cellCenter(c.i, c.j); g.position.set(x, heightAt(x, z), z); g.rotation.y = alongZ ? Math.PI / 2 : 0; ghost.add(g); });
+    } else { const cx = fp.reduce((a, c) => a + cellCenter(c.i, c.j)[0], 0) / fp.length, cz = fp.reduce((a, c) => a + cellCenter(c.i, c.j)[1], 0) / fp.length; const g = ghostModels[buildKind]; g.position.set(cx, heightAt(cx, cz), cz); g.rotation.y = buildRot * Math.PI / 2; ghost.add(g); }
   }
   const bad = cells.find(c => c.issue), okCount = cells.filter(c => !c.issue).length;
   tip.innerHTML = bad && buildKind !== 'fence' ? `<span style="color:#ff9b8b">${bad.issue}</span>`
@@ -1310,28 +1315,30 @@ function drawGhost() {
   tip.style.display = 'flex';
 }
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
-canvas.addEventListener('pointermove', (e) => {
-  if (!buildOn) return;
+function updateHover(e) {
   ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
   const hit = ray.intersectObject(terrainMesh, false)[0];
   hoverPt = hit ? hit.point : null;
   tip.style.left = e.clientX + 'px'; tip.style.top = e.clientY - 18 + 'px';
   drawGhost();
-});
+}
+canvas.addEventListener('pointermove', (e) => { if (buildOn) updateHover(e); });
 canvas.addEventListener('pointerdown', (e) => {
-  if (!buildOn || e.button !== 0 || !hoverPt) return;
+  if (!buildOn || e.button !== 0) return;
+  updateHover(e); if (!hoverPt) return;
   if (buildKind === 'fence') { dragStart = cellOf(hoverPt.x, hoverPt.z); drawGhost(); return; }
   const cells = evaluate(buildKind, footprint(buildKind, hoverPt.x, hoverPt.z));
   if (cells.some(c => c.issue)) return;
   const cx = cells.reduce((a, c) => a + cellCenter(c.i, c.j)[0], 0) / cells.length, cz = cells.reduce((a, c) => a + cellCenter(c.i, c.j)[1], 0) / cells.length;
   const obj = buildKind === 'tower' ? reg(makeTower(PAL.p2)) : makeLantern({ light: false });
-  place(obj, cx, cz, buildKind === 'tower' ? Math.PI / 4 : 0); occupy(cells.map(c => [c.i, c.j]), 'building');
+  place(obj, cx, cz, buildRot * Math.PI / 2); occupy(cells.map(c => [c.i, c.j]), 'building');
   spawnPuff(cx, heightAt(cx, cz), cz, buildKind === 'tower' ? 1.6 : 0.8); drawGhost();
 });
 addEventListener('pointerup', () => {
   if (!buildOn || !dragStart || !hoverPt) { dragStart = null; return; }
   const cells = evaluate('fence', footprint('fence', hoverPt.x, hoverPt.z)).filter(c => !c.issue).map(c => [c.i, c.j]);
   dragStart = null;
+  if (cells.length === 1) fenceAlongZ.set(cidx(...cells[0]), buildRot % 2 === 1);
   if (cells.length) { addFences(cells); cells.forEach(([i, j]) => { const [x, z] = cellCenter(i, j); spawnPuff(x, heightAt(x, z), z, 0.5); }); }
   drawGhost();
 });
@@ -1339,19 +1346,20 @@ addEventListener('keydown', (e) => {
   if (!buildOn) return;
   const k = { '1': 'fence', '2': 'tower', '3': 'lantern' }[e.key];
   if (k) { buildKind = k; dragStart = null; renderBuildBar(); drawGhost(); }
+  if (e.key === 'r' || e.key === 'R') { buildRot = (buildRot + (e.shiftKey ? 3 : 1)) % 4; drawGhost(); }
   if (e.key === 'Escape') { dragStart = null; drawGhost(); }
 });
 function renderBuildBar() {
   document.getElementById('buildBar').innerHTML = Object.entries(BUILD).map(([k, b], n) =>
-    `<button class="chip${k === buildKind ? ' on' : ''}" data-kind="${k}"><b>${n + 1}</b>${b.name}</button>`).join('') + '<span class="bb-hint">Çit: sürükle · Esc: iptal</span>';
+    `<button class="chip${k === buildKind ? ' on' : ''}" data-kind="${k}"><b>${n + 1}</b>${b.name}</button>`).join('') + '<span class="bb-hint">Çit: sürükle · R: döndür · Esc: iptal</span>';
   document.querySelectorAll('#buildBar [data-kind]').forEach(b => b.addEventListener('click', () => { buildKind = b.dataset.kind; renderBuildBar(); }));
 }
 function setBuild(on) {
   buildOn = on; gridLines.visible = on; controls.enableRotate = !on; dragStart = null;
   document.getElementById('buildBar').style.display = on ? 'flex' : 'none';
   document.getElementById('noteText').innerHTML = on
-    ? '<b>Yerleştirme kuralları</b>Bina sadece <u>aynı kattaki</u> boş hücrelere konur. Ağaç, kaya ve çalı önce temizlenir. Rampalar, su, ıslak kum ve Ocak çevresi kapalı. Yarlar yürünmez; katlar arası geçiş açık renkli rampalardan.'
-    : '<b>Kaynak döngüsü</b>Ağaç ve taş sayısı sabit. Biri bitince adada rastgele boş bir hücrede yenisi büyür. Oduncu en yakın ağaca yarları dolaşıp rampadan yürür.';
+    ? '<b>Yerleştirme kuralları</b>Bina sadece <u>aynı kattaki</u> boş hücrelere konur. Ağaç, kaya ve çalı önce temizlenir. Rampalar, kumsal ve Ocak çevresi kapalı. <b style="display:inline;font-size:inherit">R</b> ile 90° döndür. Tepelerin yarları yürünmez; çıkış açık renkli rampadan.'
+    : '<b>Kaynak döngüsü</b>Ağaç ve taş sayısı sabit. Biri bitince adada rastgele boş bir hücrede yenisi büyür. Oduncu en yakın ağaca yol bularak yürür.';
   renderBuildBar(); drawGhost();
 }
 // walkers & idlers
