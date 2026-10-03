@@ -1,0 +1,47 @@
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import type { Logger } from 'pino';
+import type { ServerConfig } from './config';
+import { createHttpHandler, type Route } from './http';
+import { attachWebSocket } from './ws';
+
+export { loadConfig, type ServerConfig } from './config';
+export { createLogger } from './logger';
+
+export interface RunningServer {
+  port: number;
+  close(): Promise<void>;
+}
+
+export async function startServer(
+  cfg: ServerConfig,
+  log: Logger,
+  opts: { helloTimeoutMs?: number } = {},
+): Promise<RunningServer> {
+  // Derleme sabiti: prod paketinde (esbuild define) bu dal ve dev-log modülü tamamen silinir.
+  let devLog: Route | null = null;
+  if (process.env.NODE_ENV !== 'production') {
+    if (cfg.mode === 'development') devLog = (await import('./dev-log')).createDevLogRoute(log);
+  }
+  const handler = createHttpHandler(cfg, devLog);
+  const server = createServer((req, res) => {
+    handler(req, res).catch((err: unknown) => {
+      log.error({ err }, 'http hatası');
+      if (!res.headersSent) res.writeHead(500);
+      res.end();
+    });
+  });
+  const wss = attachWebSocket(server, log, opts);
+  await new Promise<void>((resolve) => server.listen(cfg.port, resolve));
+  const { port } = server.address() as AddressInfo;
+  log.info({ port, mode: cfg.mode, version: cfg.version }, 'sunucu hazır');
+  return {
+    port,
+    close: () =>
+      new Promise<void>((resolve) => {
+        for (const c of wss.clients) c.terminate();
+        wss.close();
+        server.close(() => resolve());
+      }),
+  };
+}
