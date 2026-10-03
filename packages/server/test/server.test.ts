@@ -95,7 +95,11 @@ describe('HTTP', () => {
   });
   it('/__log bozuk gövdeye 400 döner', async () => {
     const { base } = await boot();
-    const res = await fetch(`${base}/__log`, { method: 'POST', body: 'not json' });
+    const res = await fetch(`${base}/__log`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: 'not json',
+    });
     expect(res.status).toBe(400);
   });
   it('/__log prototip anahtarlı geçersiz seviyeye 400 döner', async () => {
@@ -103,6 +107,7 @@ describe('HTTP', () => {
     for (const level of ['toString', '__proto__', 'constructor', 'trace']) {
       const res = await fetch(`${base}/__log`, {
         method: 'POST',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify([{ level, msg: 'x', clientId: 'c', ts: 1 }]),
       });
       expect(res.status).toBe(400);
@@ -113,6 +118,7 @@ describe('HTTP', () => {
     const levels = ['debug', 'log', 'info', 'warn', 'error'];
     const res = await fetch(`${base}/__log`, {
       method: 'POST',
+      headers: { 'content-type': 'application/json' },
       body: JSON.stringify(levels.map((level) => ({ level, msg: `seviye-${level}`, clientId: 'c', ts: 1 }))),
     });
     expect(res.status).toBe(204);
@@ -122,8 +128,39 @@ describe('HTTP', () => {
   it('/__log 64 KB üstü gövdeye 413 döner', async () => {
     const { base } = await boot();
     const big = JSON.stringify([{ level: 'log', msg: 'x'.repeat(70_000), clientId: 'c', ts: 1 }]);
-    const res = await fetch(`${base}/__log`, { method: 'POST', body: big });
+    const res = await fetch(`${base}/__log`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: big,
+    });
     expect(res.status).toBe(413);
+  });
+  it('/__log json olmayan content-type için 415 döner', async () => {
+    const { base } = await boot();
+    const res = await fetch(`${base}/__log`, {
+      method: 'POST',
+      headers: { 'content-type': 'text/plain' },
+      body: '[]',
+    });
+    expect(res.status).toBe(415);
+  });
+  it('/__log yabancı Origin için 403, localhost Origin için 204 döner', async () => {
+    const { base } = await boot();
+    const send = (origin: string) =>
+      fetch(`${base}/__log`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', origin },
+        body: '[]',
+      });
+    expect((await send('https://evil.example')).status).toBe(403);
+    expect((await send('http://localhost:5173')).status).toBe(204);
+    expect((await send('http://127.0.0.1:5173')).status).toBe(204);
+  });
+  it('HEAD /health 200 döner', async () => {
+    const { base } = await boot();
+    const res = await fetch(`${base}/health`, { method: 'HEAD' });
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe('');
   });
   it('prod modunda statik dosya servis eder, /__log yoktur', async () => {
     const staticDir = mkdtempSync(join(tmpdir(), 'gg-static-'));

@@ -57,9 +57,21 @@ function status(res: ServerResponse, code: number, body?: unknown): void {
   res.end(JSON.stringify(body));
 }
 
+const LOCAL_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/;
+
 /** POST /__log: tarayıcı konsolunu sunucu loguna (dev'de logs/dev.log) yazar. */
 export function createDevLogRoute(log: Logger) {
   return async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+    const contentType = req.headers['content-type'] ?? '';
+    if (!contentType.startsWith('application/json')) {
+      req.resume();
+      return status(res, 415, { error: 'unsupported_media_type' });
+    }
+    const origin = req.headers.origin;
+    if (origin !== undefined && !LOCAL_ORIGIN.test(origin)) {
+      req.resume();
+      return status(res, 403, { error: 'forbidden_origin' });
+    }
     const body = await readBody(req, MAX_LOG_BODY_BYTES);
     if (body === null) return status(res, 413, { error: 'too_large' });
     const entries = parseEntries(body);

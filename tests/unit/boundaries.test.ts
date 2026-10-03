@@ -61,4 +61,12 @@ describe('paket sınırları', () => {
       '@typescript-eslint/no-restricted-imports',
     );
   });
+  it('browser paketleri Node modülü içe aktaramaz', async () => {
+    const code = "import { readFileSync } from 'fs';\nexport const r = readFileSync;\n";
+    expect(await ruleIds(code, 'packages/client/src/fixture.ts')).toContain('no-restricted-imports');
+    expect(await ruleIds(code, 'packages/devtools/src/fixture.ts')).toContain('no-restricted-imports');
+    expect(await ruleIds(code, 'packages/protocol/src/fixture.ts')).toContain(
+      '@typescript-eslint/no-restricted-imports',
+    );
+  });
 });

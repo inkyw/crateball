@@ -14,7 +14,12 @@ export function createHttpHandler(cfg: ServerConfig, devLog: Route | null) {
   const assets = cfg.staticDir ? sirv(cfg.staticDir, { single: true, etag: true }) : null;
   return async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     const { pathname } = new URL(req.url ?? '/', 'http://localhost');
-    if (pathname === '/health' && req.method === 'GET') {
+    if (pathname === '/health' && (req.method === 'GET' || req.method === 'HEAD')) {
+      if (req.method === 'HEAD') {
+        res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+        res.end();
+        return;
+      }
       json(res, 200, { ok: true, version: cfg.version, mode: cfg.mode });
       return;
     }

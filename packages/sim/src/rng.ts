@@ -2,7 +2,7 @@
 export interface Rng {
   /** [0, 1) aralığında sayı. */
   next(): number;
-  /** [min, maxExclusive) aralığında tam sayı. */
+  /** [min, maxExclusive) aralığında tam sayı. Sınırlar tam sayı olmalı ve maxExclusive > min; aksi halde RangeError. */
   int(min: number, maxExclusive: number): number;
   /** Kaydedilebilir iç durum; createRng(state) kaldığı yerden devam eder. */
   state(): number;
@@ -19,7 +19,11 @@ export function createRng(seed: number): Rng {
   };
   return {
     next,
-    int: (min, maxExclusive) => min + Math.floor(next() * (maxExclusive - min)),
+    int: (min, maxExclusive) => {
+      if (!Number.isInteger(min) || !Number.isInteger(maxExclusive) || !(maxExclusive > min))
+        throw new RangeError(`int(${min}, ${maxExclusive}): sınırlar tam sayı olmalı ve maxExclusive > min`);
+      return min + Math.floor(next() * (maxExclusive - min));
+    },
     state: () => a,
   };
 }

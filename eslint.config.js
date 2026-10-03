@@ -5,6 +5,8 @@ import tseslint from 'typescript-eslint';
 
 const WORKSPACE = ['@gg/sim', '@gg/protocol', '@gg/client', '@gg/server', '@gg/devtools'];
 const NODE_BUILTINS = builtinModules.flatMap((m) => [m, `${m}/*`]);
+// Gitignore tarzı desenler './net' gibi göreli yolları 'net' sanır; göreli yolları hariç tut.
+const RELATIVE_OK = ['!./*', '!../*', '!./**', '!../**'];
 const restrict = (group, message) => ['error', { patterns: [{ group, message }] }];
 
 export default tseslint.config(
@@ -65,7 +67,15 @@ export default tseslint.config(
           ],
           patterns: [
             {
-              group: ['three', 'three/*', 'ws', ...WORKSPACE.filter((p) => p !== '@gg/sim')],
+              group: [
+                'three',
+                'three/*',
+                'ws',
+                'node:*',
+                ...NODE_BUILTINS,
+                ...RELATIVE_OK,
+                ...WORKSPACE.filter((p) => p !== '@gg/sim'),
+              ],
               message: 'protocol sadece @gg/sim tiplerine bağlı olabilir.',
             },
           ],
@@ -76,7 +86,10 @@ export default tseslint.config(
   {
     files: ['packages/client/src/**/*.ts'],
     rules: {
-      'no-restricted-imports': restrict(['@gg/server', 'ws', 'node:*'], 'client sunucu koduna bağlanamaz.'),
+      'no-restricted-imports': restrict(
+        ['@gg/server', 'ws', 'node:*', ...NODE_BUILTINS, ...RELATIVE_OK],
+        'client sunucu koduna ve Node modüllerine bağlanamaz.',
+      ),
     },
   },
   {
@@ -92,8 +105,8 @@ export default tseslint.config(
     files: ['packages/devtools/src/**/*.ts'],
     rules: {
       'no-restricted-imports': restrict(
-        ['@gg/server', '@gg/client'],
-        'devtools client/server içine takılır, onlara bağımlı olmaz.',
+        ['@gg/server', '@gg/client', 'node:*', ...NODE_BUILTINS, ...RELATIVE_OK],
+        'devtools client/server içine takılır, onlara ve Node modüllerine bağımlı olmaz.',
       ),
     },
   },

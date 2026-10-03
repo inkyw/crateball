@@ -1,4 +1,8 @@
-/** Anahtarları sıralı, undefined alanları atlayan JSON; aynı veri her zaman aynı metni verir. */
+/**
+ * Anahtarları sıralı, undefined alanları atlayan JSON; aynı veri her zaman aynı metni verir.
+ * Yalnızca düz JSON verisini destekler (nesne, dizi, string, sonlu sayı, boolean, null);
+ * Map/Set/Date/sınıf örnekleri/toJSON DESTEKLENMEZ ve sim durumuna konmamalıdır.
+ */
 export function stableStringify(value: unknown): string {
   if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'null';
   // Array.from boşlukları undefined olarak gezer (map atlardı) → JSON.stringify gibi null yazılır.
