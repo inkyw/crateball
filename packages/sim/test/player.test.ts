@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { AXE, CREATURES, PLAYER } from '../src/content/index';
-import { cellIndexAt, cellOf } from '../src/grid';
+import { cellIndexAt, cellOf, cidx } from '../src/grid';
 import { circleOverlapsCell } from '../src/placement';
 import { addBuilding, createGame, ids, spawnCreature, spawnNode } from '../src/state';
 import { step } from '../src/step';
@@ -101,6 +101,21 @@ describe('ölüm ve yeniden doğma', () => {
     s.tick++;
     updatePlayers(s, [input(pid, { move: { x: 1, z: 0 } })], []);
     expect(p().x).not.toBe(before);
+  });
+  it('varsayılan doğma noktası iki hücre sınırındaysa komşu hücredeki bina da dairenin dışında kalır', () => {
+    const { s, pid, p } = game();
+    const [ni, nj] = cellOf(PLAYER.respawnPos.x - 0.5, PLAYER.respawnPos.z);
+    addBuilding(s, 'fence', ni, nj, 0);
+    damagePlayer(s, pid, 100, []);
+    s.tick = p().respawnAtTick;
+    updatePlayers(s, [], []);
+    expect(p().dead).toBe(false);
+    const [ci, cj] = cellOf(p().x, p().z);
+    for (let dj = -2; dj <= 2; dj++)
+      for (let di = -2; di <= 2; di++) {
+        if (s.occ[cidx(ci + di, cj + dj)] === 0) continue;
+        expect(circleOverlapsCell(p().x, p().z, PLAYER.radius, ci + di, cj + dj)).toBe(false);
+      }
   });
   it('can 0 → ölü; 5 sn sonra Hearth yanında tam canla doğar; god hasar almaz', () => {
     const { s, pid, p } = game();
