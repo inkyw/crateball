@@ -1,5 +1,11 @@
 import { ATTACK_REACH, BUILDINGS } from '../content/buildings';
-import { CHASE_BLOCKED_FRACTION, CONTACT_MARGIN, CREATURES, SEPARATION } from '../content/creatures';
+import {
+  CHASE_BLOCKED_FRACTION,
+  CONTACT_MARGIN,
+  CONTACT_PASSES,
+  CREATURES,
+  SEPARATION,
+} from '../content/creatures';
 import { PLAYER } from '../content/player';
 import { DT, secondsToTicks } from '../content/time';
 import { cellCenter, cellCoords, cellIndexAt } from '../grid';
@@ -91,26 +97,49 @@ function separation(state: GameState, list: number[]): Map<number, { x: number; 
 
 /** Oyuncu–yaratık daire teması (spec §3.2): ikisi de yarı yarıya itilir; arazi/bina kuralları korunur. */
 function resolveUnitContacts(state: GameState): void {
-  for (const pid of ids(state.players)) {
-    const p = state.players[pid]!;
-    if (p.dead) continue;
-    for (const cid of ids(state.creatures)) {
-      const c = state.creatures[cid]!;
-      const minD = PLAYER.radius + CREATURES[c.kind].radius;
-      const dx = c.x - p.x;
-      const dz = c.z - p.z;
-      const d = Math.hypot(dx, dz);
-      if (d >= minD) continue;
-      const ux = d > 1e-6 ? dx / d : 1;
-      const uz = d > 1e-6 ? dz / d : 0;
-      const half = (minD - d) / 2;
-      const nc = moveCircle(state, c.x, c.z, ux * half, uz * half, CREATURES[c.kind].radius);
-      c.x = nc.x;
-      c.z = nc.z;
-      const np = moveCircle(state, p.x, p.z, -ux * half, -uz * half, PLAYER.radius);
-      p.x = np.x;
-      p.z = np.z;
+  for (let pass = 0; pass < CONTACT_PASSES; pass++) {
+    let any = false;
+    for (const pid of ids(state.players)) {
+      const p = state.players[pid]!;
+      if (p.dead) continue;
+      for (const cid of ids(state.creatures)) {
+        const c = state.creatures[cid]!;
+        const cr = CREATURES[c.kind].radius;
+        const minD = PLAYER.radius + cr;
+        const dx = c.x - p.x;
+        const dz = c.z - p.z;
+        const d = Math.hypot(dx, dz);
+        if (d >= minD) continue;
+        any = true;
+        const ux = d > 1e-6 ? dx / d : 1;
+        const uz = d > 1e-6 ? dz / d : 0;
+        const half = (minD - d) / 2;
+        const nc = moveCircle(state, c.x, c.z, ux * half, uz * half, cr);
+        c.x = nc.x;
+        c.z = nc.z;
+        const np = moveCircle(state, p.x, p.z, -ux * half, -uz * half, PLAYER.radius);
+        p.x = np.x;
+        p.z = np.z;
+        // Artık nüfuz: arazi/bina bir tarafı durdurduysa kalanı diğer tarafa (geçerli hareketle) aktar.
+        const rx = c.x - p.x;
+        const rz = c.z - p.z;
+        const rd = Math.hypot(rx, rz);
+        if (rd >= minD) continue;
+        const vx = rd > 1e-6 ? rx / rd : ux;
+        const vz = rd > 1e-6 ? rz / rd : uz;
+        const rest = minD - rd;
+        const nc2 = moveCircle(state, c.x, c.z, vx * rest, vz * rest, cr);
+        c.x = nc2.x;
+        c.z = nc2.z;
+        const rd2 = Math.hypot(c.x - p.x, c.z - p.z);
+        if (rd2 < minD) {
+          const np2 = moveCircle(state, p.x, p.z, -vx * (minD - rd2), -vz * (minD - rd2), PLAYER.radius);
+          p.x = np2.x;
+          p.z = np2.z;
+        }
+      }
     }
+    if (!any) return;
   }
 }
 
