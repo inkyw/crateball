@@ -4,7 +4,7 @@ test('prod imajı: sahne yüklenir, dev araçları yok, WebSocket el sıkışır
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto('/');
-  await expect(page).toHaveTitle('Gece Gelmeden');
+  await expect(page).toHaveTitle('Before Nightfall');
   await expect(page.locator('canvas#game')).toBeVisible();
   await page.keyboard.press('F1');
   await expect(page.locator('#debug-overlay')).toHaveCount(0);

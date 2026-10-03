@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { createDebugOverlay } from '../src/overlay';
 
-const stats = { fps: 60, frameMs: 16.66, calls: 42, triangles: 12345, net: 'bağlı' };
+const stats = { fps: 60, frameMs: 16.66, calls: 42, triangles: 12345, net: 'connected' };
 
 describe('createDebugOverlay', () => {
   it('gizli başlar, toggle ile açılır/kapanır', () => {
@@ -22,7 +22,7 @@ describe('createDebugOverlay', () => {
     expect(v('fps')).toBe('60');
     expect(v('frameMs')).toBe('16.7');
     expect(v('triangles')).toBe('12.3k');
-    expect(v('net')).toBe('bağlı');
+    expect(v('net')).toBe('connected');
   });
   it('gizliyken güncellemez', () => {
     const o = createDebugOverlay(document.body);

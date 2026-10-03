@@ -82,7 +82,7 @@ describe('connect', () => {
   it('sürüm uyuşmazlığında denemeyi bırakır', () => {
     const h = harness();
     h.last().receive(
-      encode({ t: 'error', code: 'version_mismatch', message: 'Oyun güncellendi — sayfayı yenile' }),
+      encode({ t: 'error', code: 'version_mismatch', message: 'The game was updated — reload the page' }),
     );
     h.last().close();
     expect(h.conn.status).toBe('version_mismatch');

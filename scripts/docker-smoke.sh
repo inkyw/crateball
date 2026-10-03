@@ -1,7 +1,7 @@
 #!/bin/sh
 # Prod imajını kurar, çalıştırır ve kontrol eder. Docker CLI takılırsa Docker Desktop'ı yeniden başlat.
 set -eu
-IMAGE=gece-gelmeden:local
+IMAGE=before-nightfall:local
 PORT=8080
 URL="http://localhost:$PORT"
 fail() { echo "HATA: $*"; docker logs "$CID" 2>&1 | tail -40; exit 1; }
@@ -26,7 +26,7 @@ until curl -fsS --max-time 2 "$URL/health" >/dev/null 2>&1; do
   sleep 1
 done
 
-curl -fsS --max-time 5 "$URL/" | grep -q '<title>Gece Gelmeden</title>' || fail "ana sayfa yok"
+curl -fsS --max-time 5 "$URL/" | grep -q '<title>Before Nightfall</title>' || fail "ana sayfa yok"
 code=$(curl -s --max-time 5 -o /dev/null -w '%{http_code}' -X POST "$URL/__log" -d '[]')
 [ "$code" = "404" ] || fail "prod'da /__log açık ($code)"
 assert_absent dist/client

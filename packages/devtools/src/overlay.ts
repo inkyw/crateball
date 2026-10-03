@@ -15,10 +15,10 @@ export interface DebugOverlay {
 
 const ROWS: ReadonlyArray<[keyof OverlayStats, string]> = [
   ['fps', 'FPS'],
-  ['frameMs', 'CPU ms / kare'],
-  ['calls', 'çizim çağrısı'],
-  ['triangles', 'üçgen'],
-  ['net', 'bağlantı'],
+  ['frameMs', 'CPU ms / frame'],
+  ['calls', 'draw calls'],
+  ['triangles', 'triangles'],
+  ['net', 'connection'],
 ];
 
 function format(key: keyof OverlayStats, v: number | string): string {

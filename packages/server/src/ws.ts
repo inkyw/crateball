@@ -38,13 +38,13 @@ export function attachWebSocket(
       const msg = isBinary ? null : decodeClientMessage(data.toString());
       if (!msg) {
         clog.warn('bozuk mesaj atıldı');
-        send({ t: 'error', code: 'bad_message', message: 'Mesaj okunamadı' });
+        send({ t: 'error', code: 'bad_message', message: 'Could not read message' });
         return;
       }
       if (msg.t === 'hello') {
         if (msg.protocolVersion !== PROTOCOL_VERSION) {
           clog.warn({ theirs: msg.protocolVersion, ours: PROTOCOL_VERSION }, 'sürüm uyuşmazlığı');
-          send({ t: 'error', code: 'version_mismatch', message: 'Oyun güncellendi — sayfayı yenile' });
+          send({ t: 'error', code: 'version_mismatch', message: 'The game was updated — reload the page' });
           socket.close(CLOSE_VERSION_MISMATCH, 'version mismatch');
           return;
         }
@@ -55,7 +55,7 @@ export function attachWebSocket(
         return;
       }
       if (!greeted) {
-        send({ t: 'error', code: 'bad_message', message: 'Önce hello gönder' });
+        send({ t: 'error', code: 'bad_message', message: 'Send hello first' });
         return;
       }
       if (msg.t === 'ping') send({ t: 'pong', id: msg.id, serverTime: Date.now() });

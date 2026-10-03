@@ -1,4 +1,4 @@
-# Gece Gelmeden
+# Before Nightfall (çalışma adı: Gece Gelmeden)
 
 Tarayıcıda linkle açılan, 1–4 kişilik co-op izometrik hayatta kalma oyunu. Tamamen yapay zekâ ile geliştiriliyor.
 
@@ -47,7 +47,7 @@ unset -f node npm npx pnpm pnpx corepack 2>/dev/null; export PATH="$HOME/.nvm/ve
 
 ## Kurallar
 
-- Oyuncunun gördüğü her metin Türkçe. Fontlar Baloo 2 + Nunito (Fredoka değil: Türkçe glifleri bozuk).
+- Oyuncunun gördüğü her metin **İngilizce** (isim sözlüğü: spec §1.1). Fontlar Baloo 2 + Nunito (Türkçe karakterli takma adları da gösterir; Fredoka değil).
 - Kod tanımlayıcıları İngilizce; log mesajları Türkçe olabilir.
 - Commit mesajları sade İngilizce, kanban id yok (kişisel proje).
 - Docker CLI takılırsa: `osascript -e 'quit app "Docker"'; open -a Docker`. Hiçbir şeyi silme/prune etme.

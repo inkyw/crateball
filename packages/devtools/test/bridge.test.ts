@@ -6,7 +6,7 @@ describe('createDebugBridge', () => {
     expect(createDebugBridge(() => null).cmd('ping')).toBe('pong');
   });
   it('bilinmeyen komut mevcut komutları listeleyerek hata verir', () => {
-    expect(() => createDebugBridge(() => null).cmd('yok')).toThrow('Bilinmeyen komut: yok. Mevcut: ping');
+    expect(() => createDebugBridge(() => null).cmd('yok')).toThrow('Unknown command: yok. Available: ping');
   });
   it('kayıtlı komutu argümanlarla çalıştırır', () => {
     const b = createDebugBridge(() => null);
@@ -16,7 +16,7 @@ describe('createDebugBridge', () => {
   });
   it('aynı adı iki kez kaydetmez', () => {
     const b = createDebugBridge(() => null);
-    expect(() => b.register('ping', () => 1)).toThrow('Komut zaten kayıtlı: ping');
+    expect(() => b.register('ping', () => 1)).toThrow('Command already registered: ping');
   });
   it('getState her çağrıda güncel durumu okur', () => {
     let n = 1;

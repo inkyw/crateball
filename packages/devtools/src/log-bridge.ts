@@ -66,7 +66,7 @@ export function createLogBatcher(o: LogBatcherOptions): LogBatcher {
     if (dropped > 0) {
       buf.push({
         level: 'warn',
-        msg: `[log-bridge] ${dropped} kayıt düşürüldü (çok hızlı log)`,
+        msg: `[log-bridge] ${dropped} entries dropped (logging too fast)`,
         clientId: o.clientId,
         ts: now(),
       });

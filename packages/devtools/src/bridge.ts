@@ -17,12 +17,12 @@ export function createDebugBridge(getState: () => unknown): DebugBridge {
     getState,
     commands: names,
     register(name, fn) {
-      if (registry.has(name)) throw new Error(`Komut zaten kayıtlı: ${name}`);
+      if (registry.has(name)) throw new Error(`Command already registered: ${name}`);
       registry.set(name, fn);
     },
     cmd(name, ...args) {
       const fn = registry.get(name);
-      if (!fn) throw new Error(`Bilinmeyen komut: ${name}. Mevcut: ${names().join(', ')}`);
+      if (!fn) throw new Error(`Unknown command: ${name}. Available: ${names().join(', ')}`);
       return fn(...args);
     },
   };

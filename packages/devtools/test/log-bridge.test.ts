@@ -61,7 +61,7 @@ describe('createLogBatcher', () => {
     await batcher.flush();
     const body = JSON.stringify(sent[0]);
     expect(new TextEncoder().encode(body).length).toBeLessThan(64 * 1024);
-    expect(sent[0]?.at(-1)?.msg).toMatch(/^\[log-bridge\] \d+ kayıt düşürüldü/);
+    expect(sent[0]?.at(-1)?.msg).toMatch(/^\[log-bridge\] \d+ entries dropped/);
   });
   it('JSON kaçışı ağır metinde (NUL, \\, ", Türkçe) de paket 64 KB altında kalır', async () => {
     const { sent, batcher } = harness();

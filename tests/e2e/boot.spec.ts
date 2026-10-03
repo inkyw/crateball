@@ -6,7 +6,7 @@ const LOG_FILE = 'logs/dev.log';
 
 test('sahne açılır ve sunucuya bağlanır', async ({ page }) => {
   await page.goto('/');
-  await expect(page).toHaveTitle('Gece Gelmeden');
+  await expect(page).toHaveTitle('Before Nightfall');
   await expect(page.locator('canvas#game')).toBeVisible();
   await page.waitForFunction(
     () => (window.__game?.getState() as GameState | undefined)?.net.status === 'open',
@@ -46,7 +46,7 @@ test('debug köprüsü komut çalıştırır ve bilinmeyeni reddeder', async ({ 
       return (e as Error).message;
     }
   });
-  expect(error).toContain('Bilinmeyen komut: yok');
+  expect(error).toContain('Unknown command: yok');
 });
 
 test('sunucuya ulaşılamazsa yeniden dener, ulaşınca bağlanır', async ({ page }) => {
@@ -82,7 +82,7 @@ test('sürüm uyuşmazlığında yenile uyarısı gösterir ve tekrar denemez', 
         JSON.stringify({
           t: 'error',
           code: 'version_mismatch',
-          message: 'Oyun güncellendi — sayfayı yenile',
+          message: 'The game was updated — reload the page',
         }),
       );
       void ws.close({ code: 4001 });
@@ -90,7 +90,7 @@ test('sürüm uyuşmazlığında yenile uyarısı gösterir ve tekrar denemez', 
   });
   await page.goto('/');
   await expect(page.locator('#banner')).toBeVisible();
-  await expect(page.locator('#banner button')).toHaveText('Sayfayı yenile');
+  await expect(page.locator('#banner button')).toHaveText('Reload page');
   await page.waitForTimeout(1500);
   expect(connections).toBe(1);
 });

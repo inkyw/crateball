@@ -164,10 +164,10 @@ describe('HTTP', () => {
   });
   it('prod modunda statik dosya servis eder, /__log yoktur', async () => {
     const staticDir = mkdtempSync(join(tmpdir(), 'gg-static-'));
-    writeFileSync(join(staticDir, 'index.html'), '<title>Gece Gelmeden</title>');
+    writeFileSync(join(staticDir, 'index.html'), '<title>Before Nightfall</title>');
     const { base } = await boot({ mode: 'production', logFile: null, staticDir });
-    expect(await (await fetch(`${base}/`)).text()).toContain('<title>Gece Gelmeden</title>');
-    expect(await (await fetch(`${base}/r/KXQT`)).text()).toContain('<title>Gece Gelmeden</title>');
+    expect(await (await fetch(`${base}/`)).text()).toContain('<title>Before Nightfall</title>');
+    expect(await (await fetch(`${base}/r/KXQT`)).text()).toContain('<title>Before Nightfall</title>');
     expect((await fetch(`${base}/__log`, { method: 'POST', body: '[]' })).status).toBe(404);
   });
 });
@@ -227,7 +227,7 @@ describe('WebSocket', () => {
     const c = client(wsUrl);
     await c.opened;
     c.socket.send(encode({ t: 'ping', id: 1 }));
-    expect(await c.next()).toMatchObject({ t: 'error', code: 'bad_message', message: 'Önce hello gönder' });
+    expect(await c.next()).toMatchObject({ t: 'error', code: 'bad_message', message: 'Send hello first' });
     c.socket.close();
   });
   it('64 KB üstü mesaj → 1009 ile kapanır, sunucu ayakta kalır', async () => {

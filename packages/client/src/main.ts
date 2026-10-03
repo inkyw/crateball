@@ -13,10 +13,10 @@ addEventListener('resize', resize);
 resize();
 
 const NET_TEXT: Record<NetStatus, string> = {
-  connecting: 'bağlanıyor…',
-  open: 'bağlı',
-  closed: 'bağlantı yok — yeniden deneniyor',
-  version_mismatch: 'sürüm uyuşmuyor',
+  connecting: 'connecting…',
+  open: 'connected',
+  closed: 'offline — retrying',
+  version_mismatch: 'version mismatch',
 };
 
 const conn = connect({
@@ -24,10 +24,10 @@ const conn = connect({
   onStatus: (s) => {
     if (s !== 'version_mismatch') return;
     banner.hidden = false;
-    banner.textContent = 'Oyun güncellendi.';
+    banner.textContent = 'The game was updated.';
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.textContent = 'Sayfayı yenile';
+    btn.textContent = 'Reload page';
     btn.onclick = () => location.reload();
     banner.append(btn);
   },
@@ -84,5 +84,5 @@ if (import.meta.env.DEV) {
   afterFrame = () => {
     if (stats.frame % 10 === 0) overlay.update({ ...stats, net: NET_TEXT[conn.status] });
   };
-  console.info('[gece-gelmeden] dev araçları hazır: window.__game, F1 debug paneli');
+  console.info('[before-nightfall] dev tools ready: window.__game, F1 debug panel');
 }
