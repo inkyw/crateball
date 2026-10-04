@@ -69,6 +69,9 @@ const store = {
   },
 };
 
+/** A phone or tablet: only a coarse pointer (finger) and no fine one (mouse/trackpad). */
+const touchOnly = () => matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches;
+
 export function createUi(root: HTMLElement, act: UiActions, opts: { name?: string; muted: boolean }): Ui {
   let name = opts.name ?? store.get('name') ?? '';
   if (opts.name) store.set('name', opts.name);
@@ -179,6 +182,12 @@ export function createUi(root: HTMLElement, act: UiActions, opts: { name?: strin
         'menu',
         h('h1', {}, 'Crateball'),
         h('p', { class: 'sub' }, '3v3 arcade football. Crates drop guns, mines and ice.'),
+        touchOnly() &&
+          h(
+            'p',
+            { class: 'notice', role: 'note' },
+            'Phones and tablets aren’t supported yet: Crateball needs a keyboard. Open it on a computer to play.',
+          ),
         nameField(),
         button('Create Room', () => needName() && create(), 'primary'),
         button('Find Room', () => needName() && find()),

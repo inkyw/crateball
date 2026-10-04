@@ -1,11 +1,23 @@
-import { BALL, FIELD, PLAYER } from './content/rules';
+import { BALL, BOT, FIELD, PLAYER } from './content/rules';
 import { DOWN, KICK, LEFT, RIGHT, UP, USE, type Game, type Player } from './types';
 
 const d2 = (ax: number, ay: number, bx: number, by: number) => (ax - bx) ** 2 + (ay - by) ** 2;
 
+/** Stable small number per bot, so bots don't all think on the same tick. */
+function idHash(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (Math.imul(h, 31) + id.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+/** Deterministic 0..99 roll for this bot on this tick. */
+const roll = (g: Game, p: Player) => (Math.imul(g.tick ^ idHash(p.id), 2654435761) >>> 0) % 100;
+
 /** Simple deterministic bot: chaser goes behind the ball toward the enemy goal, others hold. */
 export function botInput(g: Game, p: Player): number {
   if (p.dead > 0 || p.frozen > 0 || g.phase === 'over') return 0;
+  // Reaction time: between decisions keep the last input (minus kick, which is one press).
+  if ((g.tick + idHash(p.id)) % BOT.thinkEvery !== 0) return p.input & ~KICK;
   const own = p.team === 'red' ? -1 : 1;
   const b = g.ball;
   let bits = 0;
@@ -16,7 +28,7 @@ export function botInput(g: Game, p: Player): number {
       const dx = e.x - p.x;
       const dy = e.y - p.y;
       const d = Math.sqrt(dx * dx + dy * dy);
-      if (d < 260 && (dx * p.fx + dy * p.fy) / d > 0.93) bits |= USE;
+      if (d < BOT.shootRange && (dx * p.fx + dy * p.fy) / d > BOT.shootCos) bits |= USE;
     }
   }
 
@@ -74,6 +86,6 @@ export function botInput(g: Game, p: Player): number {
   else if (dx < -4) bits |= LEFT;
   if (dy > 4) bits |= DOWN;
   else if (dy < -4) bits |= UP;
-  if (wantKick && p.kickArmed) bits |= KICK;
+  if (wantKick && p.kickArmed && roll(g, p) < BOT.kickChance * 100) bits |= KICK;
   return bits;
 }

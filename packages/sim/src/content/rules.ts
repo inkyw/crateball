@@ -131,3 +131,19 @@ export const PASS = {
   /** Aim this fraction of the receiver's travel time ahead of them. */
   lead: 0.6,
 };
+
+/**
+ * Bot handicaps, so bots feel like average players instead of perfect machines. All deterministic
+ * (derived from the tick and the bot's id), so client prediction still matches the server.
+ */
+export const BOT = {
+  /** Rethink every N ticks (≈ 120 ms reaction); in between keep doing the same thing. */
+  thinkEvery: 7,
+  /** Movement acceleration multiplier. */
+  accelMul: 0.85,
+  /** Share of kick chances actually taken. */
+  kickChance: 0.6,
+  /** Only shoot this close and this well aimed (cosine of the angle). */
+  shootRange: 200,
+  shootCos: 0.97,
+};

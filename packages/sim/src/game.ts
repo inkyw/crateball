@@ -1,5 +1,6 @@
 import {
   BALL,
+  BOT,
   CHAOS,
   CRATES,
   DEFAULT_SETTINGS,
@@ -221,6 +222,7 @@ function controlPlayer(g: Game, p: Player): void {
     let a = kickHeld ? PLAYER.kickingAccel : PLAYER.accel;
     if (p.slow > 0) a *= ITEMS.slowMul;
     a *= accelMul(p);
+    if (p.bot) a *= BOT.accelMul;
     if (p.boost > 0) a *= ITEMS.boostMul;
     p.vx += dx * a;
     p.vy += dy * a;

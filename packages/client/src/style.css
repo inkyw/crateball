@@ -377,3 +377,13 @@ ul.rooms li.empty {
 .panel label.check {
   cursor: pointer;
 }
+
+.notice {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(232, 87, 74, 0.18);
+  border: 2px solid #e8574a;
+  font-weight: 700;
+  font-size: 14px;
+}
