@@ -42,6 +42,7 @@ export function attachWebSocket(
       if (code) send({ t: 'error', code, message: ERROR_TEXT[code] });
     };
     let greeted = false;
+    let lastStatsAt = 0;
     const timer = setTimeout(() => {
       if (!greeted) socket.close(CLOSE_HELLO_TIMEOUT, 'hello timeout');
     }, opts.helloTimeoutMs ?? HELLO_TIMEOUT_MS);
@@ -114,6 +115,16 @@ export function attachWebSocket(
           break;
         case 'swap':
           fail(rooms.swap(clientId, msg.a, msg.b));
+          break;
+        case 'stats': {
+          const now = Date.now();
+          if (now - lastStatsAt < 1000) break; // at most 1/s per client, whatever it sends
+          lastStatsAt = now;
+          clog.info({ ...rooms.whereIs(clientId), ...msg.s }, 'istemci istatistik');
+          break;
+        }
+        case 'report':
+          clog.warn({ ...rooms.whereIs(clientId), note: msg.note, recent: msg.recent }, 'oyuncu raporu (F9)');
           break;
       }
     });

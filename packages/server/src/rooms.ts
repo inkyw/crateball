@@ -32,6 +32,8 @@ const QUEUE_MAX = 10;
 const QUEUE_KEEP = 4;
 const TICK_MS = 1000 / TICK_HZ;
 const MAX_CATCHUP = 5;
+/** A room stats log line every 5 s of play. */
+const ROOM_STATS_EVERY = TICK_HZ * 5;
 /** An empty room survives this long so a shared link still works after a refresh. */
 export const EMPTY_ROOM_TTL_MS = 2 * 60_000;
 
@@ -40,6 +42,8 @@ interface Member {
   send: (raw: string) => void;
   queue: Array<[seq: number, bits: number]>;
   ack: number;
+  /** Ticks played with a stand-in input since the last stats line. */
+  starved: number;
   /** Last input applied; stands in when the queue runs dry. */
   last: number;
 }
@@ -54,6 +58,8 @@ export interface Room {
   members: Map<string, Member>;
   bots: number;
   emptySince: number | null;
+  /** Slowest tick (step + snapshot) since the last stats line. */
+  stepMsMax: number;
 }
 
 type Result = Room | ErrorCode;
@@ -70,6 +76,8 @@ export interface Rooms {
   setSettings(id: string, settings: Settings): ErrorCode | null;
   start(id: string): ErrorCode | null;
   list(): RoomListing[];
+  /** Room code and player name for log lines. */
+  whereIs(id: string): { room?: string; name?: string };
   tickAll(): void;
   stop(): void;
   readonly rooms: ReadonlyMap<string, Room>;
@@ -164,11 +172,42 @@ export function createRooms(
         // key change landing exactly on this tick. (Waiting instead would shift the whole world by a
         // tick: measured 3× more own-player correction at 40 ms jitter.)
         m.ack++;
+        m.starved++;
         inputs.set(m.id, m.last);
       }
     }
+    const t0 = performance.now();
     step(g, inputs);
     if (g.tick % SNAP_EVERY === 0) broadcastSnap(room);
+    room.stepMsMax = Math.max(room.stepMsMax, performance.now() - t0);
+    if (g.tick % ROOM_STATS_EVERY === 0) {
+      const starved = Object.fromEntries(
+        [...room.members.values()].map((m) => [
+          g.players.find((p) => p.id === m.id)?.name ?? m.id,
+          m.starved,
+        ]),
+      );
+      const queued = Object.fromEntries(
+        [...room.members.values()].map((m) => [
+          g.players.find((p) => p.id === m.id)?.name ?? m.id,
+          m.queue.length,
+        ]),
+      );
+      log.info(
+        {
+          room: room.code,
+          tick: g.tick,
+          phase: g.phase,
+          score: g.score,
+          starved,
+          queued,
+          stepMsMax: Math.round(room.stepMsMax * 100) / 100,
+        },
+        'oda istatistik',
+      );
+      for (const m of room.members.values()) m.starved = 0;
+      room.stepMsMax = 0;
+    }
   };
 
   const tickAll = () => {
@@ -225,7 +264,7 @@ export function createRooms(
     const blue = teamCount(g, 'blue', false);
     const team: Team = blue < red ? 'blue' : 'red';
     addPlayer(g, id, name, team);
-    room.members.set(id, { id, send, queue: [], ack: 0, last: 0 });
+    room.members.set(id, { id, send, queue: [], ack: 0, starved: 0, last: 0 });
     room.emptySince = null;
     byClient.set(id, room);
     rebalance(room);
@@ -284,6 +323,7 @@ export function createRooms(
         members: new Map(),
         bots: 0,
         emptySince: null,
+        stepMsMax: 0,
       };
       rooms.set(code, room);
       log.info({ room: code, isPublic }, 'oda kuruldu');
@@ -353,6 +393,10 @@ export function createRooms(
       announce(room);
       broadcastSnap(room);
       return null;
+    },
+    whereIs(id) {
+      const room = byClient.get(id);
+      return { room: room?.code, name: room?.game.players.find((p) => p.id === id)?.name };
     },
     list() {
       return [...rooms.values()]

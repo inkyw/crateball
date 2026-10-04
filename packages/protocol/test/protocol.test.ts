@@ -86,3 +86,37 @@ describe('oyun mesajları', () => {
     expect(m?.t === 'snap' && m.ack === 9 && m.g.ball.x).toBe(0.333);
   });
 });
+
+describe('telemetri', () => {
+  const ok = {
+    fps: 59.8,
+    frameMsMax: 21,
+    longFrames: 0,
+    rtt: 92,
+    pending: 7,
+    serverQueue: 0.4,
+    corrections: 3,
+    myCorrectionPx: 4.2,
+    myCorrectionMaxPx: 1.9,
+  };
+  it('istatistik penceresini kabul eder, bilinmeyen alanı atar', () => {
+    expect(decodeClientMessage(JSON.stringify({ t: 'stats', s: { ...ok, evil: 1 } }))).toEqual({
+      t: 'stats',
+      s: ok,
+    });
+  });
+  it('eksik ya da saçma sayıyı reddeder', () => {
+    expect(decodeClientMessage(JSON.stringify({ t: 'stats', s: { ...ok, rtt: -1 } }))).toBeNull();
+    expect(decodeClientMessage(JSON.stringify({ t: 'stats', s: { fps: 60 } }))).toBeNull();
+  });
+  it('F9 raporu en fazla 10 pencere taşır', () => {
+    expect(decodeClientMessage(JSON.stringify({ t: 'report', note: 'zıpladı', recent: [ok] }))).toEqual({
+      t: 'report',
+      note: 'zıpladı',
+      recent: [ok],
+    });
+    expect(
+      decodeClientMessage(JSON.stringify({ t: 'report', note: '', recent: Array(11).fill(ok) })),
+    ).toBeNull();
+  });
+});

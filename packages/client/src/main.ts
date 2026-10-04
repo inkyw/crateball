@@ -8,6 +8,7 @@ import { createParticles } from './particles';
 import { createPredictor } from './predict';
 import { createRenderer } from './render';
 import { createSound } from './sound';
+import { createTelemetry } from './telemetry';
 import { createUi } from './ui';
 
 const $ = <T extends HTMLElement>(sel: string) => {
@@ -169,6 +170,7 @@ ui.menu(pathCode && CODE_RE.test(pathCode) ? pathCode : undefined);
 const ROLE_KEYS: Record<string, Role> = { Digit1: 'gk', Digit2: 'def', Digit3: 'mid', Digit4: 'fwd' };
 const keyboard = createKeyboard(window, (code) => {
   if (code === 'KeyM') setMuted(!sound.muted);
+  if (code === 'F9') sendReport();
   if (room?.state !== 'playing') return;
   const me = pred.game?.players.find((p) => p.id === pred.me);
   if (code === 'KeyT' && me) conn.send({ t: 'move', id: me.id, team: me.team === 'red' ? 'blue' : 'red' });
@@ -176,6 +178,31 @@ const keyboard = createKeyboard(window, (code) => {
   if (role) conn.send({ t: 'role', role });
 });
 document.addEventListener('visibilitychange', () => keyboard.release());
+
+let lastCorrections = 0;
+let lastMyPx = 0;
+const telemetry = createTelemetry(() => {
+  const c = pred.corrections;
+  const px = pred.myCorrection;
+  const out = {
+    rtt,
+    pending: pred.pending,
+    serverQueue: queueAvg,
+    corrections: c - lastCorrections,
+    myCorrectionPx: px - lastMyPx,
+    myCorrectionMaxPx: pred.takeMaxCorrection(),
+  };
+  lastCorrections = c;
+  lastMyPx = px;
+  return out;
+});
+const sendReport = () => {
+  if (room?.state !== 'playing') return;
+  conn.send({ t: 'report', note: '', recent: telemetry.recent() });
+  banner.hidden = false;
+  banner.textContent = 'Report sent (F9)';
+  setTimeout(() => (banner.hidden = true), 1500);
+};
 
 const TICK_MS = 1000 / TICK_HZ;
 let acc = 0;
@@ -212,6 +239,8 @@ function loop(now: number) {
     fpsT = now;
     fpsN = 0;
   }
+  const window2s = telemetry.frame(now, dt, room?.state === 'playing' && conn.status === 'open');
+  if (window2s) conn.send({ t: 'stats', s: window2s });
   afterFrame?.();
   requestAnimationFrame(loop);
 }

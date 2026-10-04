@@ -18,10 +18,39 @@ export type ClientMessage =
   | { t: 'swap'; a: string; b: string }
   /** Host (anyone) or self: move a player to a team. */
   | { t: 'move'; id: string; team: Team }
+  /** Telemetry window (every ~2 s while playing); the server only logs it. */
+  | { t: 'stats'; s: ClientStats }
+  /** F9: "something just happened" — recent windows plus an optional note. */
+  | { t: 'report'; note: string; recent: ClientStats[] }
   /** One input byte per client tick; `s` is the client's sequence number. */
   | { t: 'in'; s: number; b: number }
   | { t: 'team'; team: Team }
   | { t: 'role'; role: Role };
+
+export const STAT_KEYS = [
+  'fps',
+  'frameMsMax',
+  'longFrames',
+  'rtt',
+  'pending',
+  'serverQueue',
+  'corrections',
+  'myCorrectionPx',
+  'myCorrectionMaxPx',
+] as const;
+export type ClientStats = Record<(typeof STAT_KEYS)[number], number>;
+
+/** Every known key must be a finite, non-negative number below a sane bound; extra keys are dropped. */
+export function decodeStats(v: unknown): ClientStats | null {
+  if (!isObj(v)) return null;
+  const out = {} as ClientStats;
+  for (const k of STAT_KEYS) {
+    const n = v[k];
+    if (typeof n !== 'number' || !Number.isFinite(n) || n < 0 || n > 1e6) return null;
+    out[k] = Math.round(n * 10) / 10;
+  }
+  return out;
+}
 
 export type ErrorCode = 'version_mismatch' | 'bad_message' | 'room_full' | 'room_not_found' | 'not_host';
 
@@ -142,6 +171,16 @@ export function decodeClientMessage(raw: string): ClientMessage | null {
       return isStr(m.id, 64) && (m.team === 'red' || m.team === 'blue')
         ? { t: 'move', id: m.id, team: m.team }
         : null;
+    case 'stats': {
+      const st = decodeStats(m.s);
+      return st ? { t: 'stats', s: st } : null;
+    }
+    case 'report': {
+      if (!Array.isArray(m.recent) || m.recent.length > 10) return null;
+      const recent = m.recent.map(decodeStats);
+      if (recent.some((r) => r === null)) return null;
+      return { t: 'report', note: cleanText(m.note, 200) ?? '', recent: recent as ClientStats[] };
+    }
     case 'settings': {
       const settings = decodeSettings(m.settings);
       return settings ? { t: 'settings', settings } : null;

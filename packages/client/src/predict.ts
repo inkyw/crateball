@@ -34,6 +34,8 @@ export interface Predictor {
   readonly corrections: number;
   /** Total distance (px) our own player was corrected by — the number that matters for feel. */
   readonly myCorrection: number;
+  /** Largest single own-player correction (px) since the last `takeMaxCorrection()`. */
+  takeMaxCorrection(): number;
   setMe(id: string): void;
   /** Back to the lobby: no game until the next snapshot. */
   reset(): void;
@@ -63,6 +65,7 @@ export function createPredictor(): Predictor {
   const err: Positions = new Map();
   let corrections = 0;
   let myCorrection = 0;
+  let maxCorrection = 0;
 
   const advance = (bits: number) => {
     if (!game) return;
@@ -86,6 +89,11 @@ export function createPredictor(): Predictor {
     },
     get myCorrection() {
       return myCorrection;
+    },
+    takeMaxCorrection() {
+      const m = maxCorrection;
+      maxCorrection = 0;
+      return m;
     },
     reset() {
       game = null;
@@ -136,7 +144,11 @@ export function createPredictor(): Predictor {
             e.y *= MAX_OFFSET / len;
           }
           if (dx * dx + dy * dy > 0.25) corrections++;
-          if (id === me) myCorrection += Math.sqrt(dx * dx + dy * dy);
+          if (id === me) {
+            const d = Math.sqrt(dx * dx + dy * dy);
+            myCorrection += d;
+            maxCorrection = Math.max(maxCorrection, d);
+          }
         }
         err.set(id, e);
       }
