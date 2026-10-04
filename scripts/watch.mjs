@@ -38,9 +38,13 @@ createInterface({ input: process.stdin }).on('line', (l) => {
       if (j.fps < 50 && j.frameMsMax < 1000) bad.push(`fps ${j.fps}`);
       if ((j.longFrames >= 3 || j.frameMsMax > 60) && j.frameMsMax < 1000)
         bad.push(`takılma ${j.longFrames} kare, en uzun ${j.frameMsMax}ms`);
-      if (j.rtt > 150) bad.push(`ping ${j.rtt}`);
-      if (!bad.length) return;
       const now = Date.now();
+      // High ping alone is a property of that player's line: say it at most every 2 minutes.
+      if (j.rtt > 150 && now - (lastWarn.get(`ping:${who}`) ?? 0) > 120000) {
+        lastWarn.set(`ping:${who}`, now);
+        if (!bad.length) return out(`PING ${who}: ${j.rtt} ms`);
+      }
+      if (!bad.length) return;
       if (now - (lastWarn.get(who) ?? 0) < 10000) return;
       lastWarn.set(who, now);
       return out(`UYARI ${who}: ${bad.join(', ')} (ping ${j.rtt})`);
