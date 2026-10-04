@@ -30,3 +30,25 @@ export const RENDER = {
   arrowHeight: 1.6,
   axeSwingS: 0.5,
 } as const;
+
+/** F1 debug çizimleri (flow okları, çarpıştırıcılar, fener yarıçapı): renk, opaklık, yükseklik ofsetleri, ok oranları. */
+export const DEBUG_VIEW = {
+  opacity: 0.85,
+  renderOrder: 20,
+  flowColor: 0x8ff3ff,
+  colliderColor: 0xffd75e,
+  lanternColor: 0xffb24d,
+  /** Flow okları zeminin bu kadar üstünde; çarpıştırıcı/fener çizgileri `groundLift` kadar. */
+  arrowLift: 0.12,
+  groundLift: 0.1,
+  /** Ok gövdesi hücre vektörünün bu oranı kadar uzar; ok ucu kanatları bu oranda. */
+  arrowShaft: 0.7,
+  arrowHead: 0.15,
+  /** Hücre kutusunun yarı kenarı. */
+  cellHalf: 0.5,
+  playerSegments: 16,
+  creatureSegments: 10,
+  lanternSegments: 32,
+  /** Başlangıç kapasitesi (float); gerekirse ikinin katı olarak büyür. */
+  minCapacity: 1024,
+} as const;
