@@ -1,9 +1,11 @@
 import { ITEMS, type Game, type ItemKind, type Team } from '@crateball/sim';
 
+const KICK_WINDOW = 45;
+
 export type GameEvent =
   | { type: 'kick'; x: number; y: number; power: boolean }
   | { type: 'shot'; x: number; y: number; vx: number; vy: number }
-  | { type: 'hit'; x: number; y: number; team: Team }
+  | { type: 'hit'; x: number; y: number; team: Team; killed: boolean }
   | { type: 'item'; x: number; y: number; kind: ItemKind }
   | { type: 'goal'; team: Team; x: number; y: number }
   | { type: 'whistle'; long: boolean };
@@ -18,7 +20,7 @@ export function createEventTracker() {
   let lastScore = '';
   let maxBullet = 0;
   const kickSeen = new Map<string, number>();
-  const hp = new Map<string, number>();
+  const hp = new Map<string, { hp: number; x: number; y: number }>();
   let blastsSeen = new Set<string>();
 
   return (g: Game | null): GameEvent[] => {
@@ -41,13 +43,15 @@ export function createEventTracker() {
     lastPhase = g.phase;
     for (const p of g.players) {
       const seen = kickSeen.get(p.id) ?? -1;
-      if (!fresh && p.kickTick > seen && g.tick - p.kickTick < 10)
+      // Someone else's kick reaches us about a ping late, so accept kicks up to ~0.75 s old;
+      // the per-player tick stamp still plays each kick once.
+      if (!fresh && p.kickTick > seen && g.tick - p.kickTick < KICK_WINDOW)
         out.push({ type: 'kick', x: g.ball.x, y: g.ball.y, power: Math.hypot(g.ball.vx, g.ball.vy) > 8 });
       kickSeen.set(p.id, Math.max(p.kickTick, seen));
       const before = hp.get(p.id);
-      if (!fresh && before !== undefined && p.hp < before && p.dead === 0)
-        out.push({ type: 'hit', x: p.x, y: p.y, team: p.team });
-      hp.set(p.id, p.hp);
+      if (!fresh && before !== undefined && p.hp < before.hp)
+        out.push({ type: 'hit', x: before.x, y: before.y, team: p.team, killed: p.dead > 0 });
+      hp.set(p.id, p.dead > 0 && before ? { ...before, hp: p.hp } : { hp: p.hp, x: p.x, y: p.y });
     }
     for (const b of g.bullets) {
       if (b.id > maxBullet) {

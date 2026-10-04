@@ -54,6 +54,8 @@ addEventListener('keydown', () => sound.unlock());
 let room: RoomInfo | null = null;
 let code: string | null = null;
 let rtt = 0;
+/** Smoothed count of our inputs waiting on the server (debug panel). */
+let queueAvg = 0;
 
 const showError = (text: string) => {
   banner.hidden = false;
@@ -110,7 +112,10 @@ const conn = connect({
         onRoom(m.room);
         break;
       case 'snap':
-        if (room?.state === 'playing') pred.snapshot(m.ack, m.g);
+        if (room?.state === 'playing') {
+          pred.snapshot(m.ack, m.g);
+          queueAvg = queueAvg * 0.9 + m.q * 0.1;
+        }
         break;
       case 'pong':
         rtt = performance.now() - m.id;
@@ -122,7 +127,7 @@ const conn = connect({
     }
   },
 });
-setInterval(() => conn.send({ t: 'ping', id: Math.floor(performance.now()) }), 2000);
+setInterval(() => conn.send({ t: 'ping', id: Math.floor(performance.now()) }), 1000);
 
 function onRoom(r: RoomInfo) {
   const wasPlaying = room?.state === 'playing';
@@ -183,8 +188,9 @@ function loop(now: number) {
   const dt = now - last;
   last = now;
   acc = Math.min(acc + dt, TICK_MS * 6);
-  while (acc >= TICK_MS) {
-    acc -= TICK_MS;
+  const tickMs = TICK_MS;
+  while (acc >= tickMs) {
+    acc -= tickMs;
     const bits = room?.state === 'playing' ? keyboard.bits() : 0;
     const seq = pred.tick(bits);
     if (seq !== null) conn.send({ t: 'in', s: seq, b: bits });
@@ -197,7 +203,7 @@ function loop(now: number) {
   if (pred.game) fx.ambient(pred.game, (id) => pred.pos(id, acc / TICK_MS), dt / 1000);
   fx.update(Math.min(dt, 50) / 1000);
   pred.decay(dt / 1000);
-  renderer.draw(pred, acc / TICK_MS, fx);
+  renderer.draw(pred, Math.min(1, acc / tickMs), fx, { rtt: conn.status === 'open' ? rtt : null });
   stats.frameMs = performance.now() - t0;
   stats.frame++;
   fpsN++;
@@ -233,7 +239,12 @@ function getState() {
       rtt: Math.round(rtt),
     },
     render: { fps: stats.fps, frameMs: stats.frameMs, particles: fx.count },
-    pred: { pending: pred.pending, corrections: pred.corrections },
+    pred: {
+      pending: pred.pending,
+      corrections: pred.corrections,
+      serverQueue: Math.round(queueAvg * 10) / 10,
+      myCorrectionPx: Math.round(pred.myCorrection),
+    },
     sim: g && {
       tick: g.tick,
       phase: g.phase,

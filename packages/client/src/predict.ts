@@ -16,10 +16,14 @@ export interface Vec {
   y: number;
 }
 
-/** Corrections bigger than this are teleports (respawn, kickoff reset) and are not smoothed. */
-const SNAP_DISTANCE = 60;
-/** Offset half-life ≈ 50 ms. */
-const SMOOTH_RATE = 14;
+/** A single correction bigger than this is a real teleport (respawn, kickoff reset) and is not smoothed. */
+const SNAP_DISTANCE = 80;
+/** The visual offset never trails the true position by more than this. */
+const MAX_OFFSET = 40;
+/** Offset decay rates: own player ≈ 50 ms half-life (its corrections are rare and small); others and
+ * the ball ≈ 90 ms, since their corrections come from guessing someone else's input and are larger. */
+const SMOOTH_RATE_ME = 14;
+const SMOOTH_RATE = 7.5;
 /** Never re-simulate more than this many ticks (≈ 1 s) — a hopelessly late client just snaps. */
 const MAX_PENDING = 60;
 
@@ -28,6 +32,8 @@ export interface Predictor {
   readonly me: string | null;
   readonly pending: number;
   readonly corrections: number;
+  /** Total distance (px) our own player was corrected by — the number that matters for feel. */
+  readonly myCorrection: number;
   setMe(id: string): void;
   /** Back to the lobby: no game until the next snapshot. */
   reset(): void;
@@ -56,6 +62,7 @@ export function createPredictor(): Predictor {
   let cur: Positions = new Map();
   const err: Positions = new Map();
   let corrections = 0;
+  let myCorrection = 0;
 
   const advance = (bits: number) => {
     if (!game) return;
@@ -76,6 +83,9 @@ export function createPredictor(): Predictor {
     },
     get corrections() {
       return corrections;
+    },
+    get myCorrection() {
+      return myCorrection;
     },
     reset() {
       game = null;
@@ -98,6 +108,8 @@ export function createPredictor(): Predictor {
     },
     snapshot(ack, g) {
       const before = game ? cur : null;
+      // The server counted stand-in ticks for us (we were late): continue numbering after them.
+      if (ack > seq) seq = ack;
       pending = pending.filter(([s]) => s > ack);
       game = cloneGame(g);
       cur = positions(game);
@@ -110,10 +122,22 @@ export function createPredictor(): Predictor {
         const dx = old.x - now.x;
         const dy = old.y - now.y;
         const e = err.get(id) ?? { x: 0, y: 0 };
-        e.x += dx;
-        e.y += dy;
-        if (e.x * e.x + e.y * e.y > SNAP_DISTANCE * SNAP_DISTANCE) e.x = e.y = 0;
-        else if (dx * dx + dy * dy > 0.25) corrections++;
+        if (dx * dx + dy * dy > SNAP_DISTANCE * SNAP_DISTANCE) {
+          // A real teleport in this one correction (respawn, kickoff reset): show it as is.
+          e.x = e.y = 0;
+        } else {
+          // Small corrections stack up; cap the total offset instead of dropping it, because
+          // dropping it would jump the object by the whole accumulated amount in one frame.
+          e.x += dx;
+          e.y += dy;
+          const len = Math.sqrt(e.x * e.x + e.y * e.y);
+          if (len > MAX_OFFSET) {
+            e.x *= MAX_OFFSET / len;
+            e.y *= MAX_OFFSET / len;
+          }
+          if (dx * dx + dy * dy > 0.25) corrections++;
+          if (id === me) myCorrection += Math.sqrt(dx * dx + dy * dy);
+        }
         err.set(id, e);
       }
     },
@@ -129,9 +153,11 @@ export function createPredictor(): Predictor {
     },
     decay(dt) {
       const k = Math.exp(-dt * SMOOTH_RATE);
-      for (const e of err.values()) {
-        e.x *= k;
-        e.y *= k;
+      const kMe = Math.exp(-dt * SMOOTH_RATE_ME);
+      for (const [id, e] of err) {
+        const f = id === me ? kMe : k;
+        e.x *= f;
+        e.y *= f;
       }
     },
   };

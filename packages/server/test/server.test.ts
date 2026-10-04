@@ -302,3 +302,35 @@ describe('WebSocket', () => {
     guest.socket.close();
   });
 });
+
+describe('girdi kuyruğu', () => {
+  it('kuyruk boşalınca son girdi o tick için yerine geçer ve sıra ilerler; geç gelen girdi son girdi olur', async () => {
+    const { createRooms } = await import('../src/rooms');
+    const log = createLogger(loadConfig({ NODE_ENV: 'test' }), { stdout: silent });
+    const rooms = createRooms(log);
+    const sent: string[] = [];
+    const room = rooms.create(
+      'a',
+      'A',
+      'R',
+      false,
+      { minutes: 3, scoreLimit: 5, crates: 'off', bots: false },
+      (r) => sent.push(r),
+    );
+    rooms.start('a');
+    const last = () =>
+      JSON.parse(sent.filter((r) => r.startsWith('{"t":"snap"')).at(-1)!) as { ack: number; q: number };
+    rooms.input('a', 1, 8);
+    rooms.tickAll();
+    rooms.tickAll(); // boş kuyruk: 8 yerine geçer, ack 2 sayılır
+    expect(last().ack).toBe(2);
+    rooms.input('a', 2, 4); // geç geldi
+    rooms.input('a', 3, 4);
+    rooms.input('a', 4, 4);
+    rooms.tickAll();
+    rooms.tickAll();
+    expect(last()).toMatchObject({ ack: 4, q: 0 });
+    expect(room.game.players[0]?.input).toBe(4);
+    rooms.stop();
+  });
+});

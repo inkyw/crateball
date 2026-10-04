@@ -56,30 +56,42 @@ export function createSound(): Sound {
     whistle: (long: boolean) => {
       for (let i = 0; i < (long ? 3 : 1); i++) tone('square', 2900, 2700, long ? 0.35 : 0.25, 0.08, i * 0.45);
     },
+    /** Ball into the net: a soft swish of netting, then a light crowd swell. */
     goal: () => {
-      noise(1.6, 0.35, 'bandpass', 900);
-      [523, 659, 784, 1047].forEach((f, i) => tone('triangle', f, f, 0.25, 0.25, i * 0.09));
+      noise(0.35, 0.55, 'highpass', 3200);
+      noise(0.5, 0.35, 'bandpass', 1400, 0.05);
+      noise(1.4, 0.18, 'lowpass', 900, 0.15);
+      tone('triangle', 784, 784, 0.18, 0.12, 0.25);
+      tone('triangle', 1047, 1047, 0.3, 0.12, 0.38);
     },
     shot: () => {
-      noise(0.08, 0.5, 'highpass', 1200);
-      tone('square', 900, 120, 0.08, 0.15);
+      noise(0.09, 0.7, 'highpass', 1100);
+      tone('square', 950, 110, 0.09, 0.22);
     },
-    hit: () => tone('sawtooth', 220, 60, 0.15, 0.3),
+    hit: (killed: boolean) => {
+      tone('sawtooth', 240, 60, 0.16, 0.45);
+      noise(0.08, 0.4, 'bandpass', 700);
+      if (killed) tone('sine', 300, 40, 0.5, 0.6, 0.08);
+    },
     item: (kind: ItemKind) => {
       switch (kind) {
         case 'mine':
-          noise(0.7, 0.9, 'lowpass', 600);
-          tone('sine', 120, 30, 0.5, 0.8);
+          noise(0.8, 1, 'lowpass', 700);
+          tone('sine', 130, 28, 0.6, 1);
+          noise(0.25, 0.5, 'highpass', 1500);
           break;
         case 'ice':
-          [1400, 1800, 2300].forEach((f, i) => tone('sine', f, f * 1.2, 0.3, 0.12, i * 0.05));
+          // Crack + glassy shimmer.
+          noise(0.12, 0.6, 'highpass', 4000);
+          [1500, 1900, 2400, 3000].forEach((f, i) => tone('sine', f, f * 1.15, 0.35, 0.22, i * 0.04));
           break;
         case 'gun':
-          noise(0.05, 0.4, 'bandpass', 3000);
-          noise(0.05, 0.4, 'bandpass', 2000, 0.08);
+          noise(0.05, 0.6, 'bandpass', 3000);
+          noise(0.05, 0.6, 'bandpass', 2000, 0.08);
+          tone('square', 220, 180, 0.06, 0.15, 0.08);
           break;
         default:
-          [440, 554, 659, 880].forEach((f, i) => tone('triangle', f, f, 0.12, 0.18, i * 0.05));
+          [440, 554, 659, 880].forEach((f, i) => tone('triangle', f, f, 0.12, 0.25, i * 0.05));
       }
     },
   };
@@ -114,7 +126,7 @@ export function createSound(): Sound {
           sfx.shot();
           break;
         case 'hit':
-          sfx.hit();
+          sfx.hit(e.killed);
           break;
         case 'item':
           sfx.item(e.kind);

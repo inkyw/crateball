@@ -53,7 +53,47 @@ describe('tahmin', () => {
     moved.ball.x = 20;
     c.snapshot(0, moved);
     expect(c.pos('ball', 1)!.x).toBeCloseTo(0, 6);
-    c.decay(1);
+    c.decay(2);
     expect(c.pos('ball', 1)!.x).toBeCloseTo(20, 2);
+  });
+});
+
+describe('ışınlanma', () => {
+  it('üst üste gelen küçük düzeltmeler biriken farkı bir anda sıfırlamaz (zıplama yok)', () => {
+    const c = createPredictor();
+    c.setMe('me');
+    const g = createGame(1);
+    addPlayer(g, 'me', 'Me', 'red');
+    c.snapshot(0, g);
+    let shown = c.pos('ball', 1)!.x;
+    for (let i = 1; i <= 8; i++) {
+      const moved = cloneGame(g);
+      moved.ball.x = i * 15; // her snapshot 15 px düzeltme → toplam 120 px
+      c.snapshot(0, moved);
+      const now = c.pos('ball', 1)!.x;
+      expect(Math.abs(now - shown)).toBeLessThanOrEqual(15 + 1e-9);
+      shown = now;
+    }
+  });
+  it('tek seferde büyük fark (yeniden doğma) doğrudan gösterilir', () => {
+    const c = createPredictor();
+    c.setMe('me');
+    const g = createGame(1);
+    addPlayer(g, 'me', 'Me', 'red');
+    c.snapshot(0, g);
+    const moved = cloneGame(g);
+    moved.ball.x = 300;
+    c.snapshot(0, moved);
+    expect(c.pos('ball', 1)!.x).toBe(300);
+  });
+  it('sunucu bizim yerimize tick saydıysa sıra numarası onun ardından devam eder', () => {
+    const c = createPredictor();
+    c.setMe('me');
+    const g = createGame(1);
+    addPlayer(g, 'me', 'Me', 'red');
+    c.snapshot(0, g);
+    c.tick(0);
+    c.snapshot(5, g);
+    expect(c.tick(0)).toBe(6);
   });
 });

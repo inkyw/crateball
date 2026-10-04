@@ -52,7 +52,7 @@ const H = FIELD.halfH + FIELD.margin + 10;
 
 export interface Renderer {
   resize(w: number, h: number, dpr: number): void;
-  draw(p: Predictor, alpha: number, fx: Particles): void;
+  draw(p: Predictor, alpha: number, fx: Particles, hud: { rtt: number | null }): void;
 }
 
 export function createRenderer(canvas: HTMLCanvasElement): Renderer {
@@ -317,6 +317,24 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       text(`First to ${g.settings.scoreLimit}`, mid, h / 2 - 60, 28, '#FFF4E0', 800);
   };
 
+  const drawPing = (rtt: number | null, w: number) => {
+    const label = rtt === null ? 'offline' : `${Math.round(rtt)} ms`;
+    const color = rtt === null ? COLORS.red : rtt < 80 ? '#7CFF7A' : rtt < 150 ? '#FFE066' : COLORS.red;
+    ctx.fillStyle = 'rgba(20,24,40,.82)';
+    ctx.beginPath();
+    ctx.roundRect(w - 104, 14, 92, 28, 10);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(w - 88, 28, 5, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.font = "700 14px 'Baloo 2', Nunito, system-ui, sans-serif";
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#FFF4E0';
+    ctx.fillText(label, w - 76, 29);
+  };
+
   return {
     resize(w, h, ratio) {
       dpr = ratio;
@@ -327,7 +345,7 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       cy = (HUD_H * dpr + canvas.height - 30 * dpr) / 2;
       pitch = null;
     },
-    draw(pr, alpha, fx) {
+    draw(pr, alpha, fx, hudInfo) {
       const now = performance.now();
       if (!pitch) buildPitch();
       const g = pr.game;
@@ -342,6 +360,7 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       drawWorld(g, pr, alpha, now, fx);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       drawHud(g, pr, canvas.width / dpr);
+      drawPing(hudInfo.rtt, canvas.width / dpr);
     },
   };
 }

@@ -28,8 +28,8 @@ import {
 /** A snapshot every N ticks (60 Hz sim → 30 Hz snapshots). */
 export const SNAP_EVERY = 2;
 /** Input queue: beyond this a client is too far ahead; trim back to KEEP to cap latency. */
-const QUEUE_MAX = 8;
-const QUEUE_KEEP = 3;
+const QUEUE_MAX = 10;
+const QUEUE_KEEP = 4;
 const TICK_MS = 1000 / TICK_HZ;
 const MAX_CATCHUP = 5;
 /** An empty room survives this long so a shared link still works after a refresh. */
@@ -40,6 +40,8 @@ interface Member {
   send: (raw: string) => void;
   queue: Array<[seq: number, bits: number]>;
   ack: number;
+  /** Last input applied; stands in when the queue runs dry. */
+  last: number;
 }
 
 export interface Room {
@@ -136,7 +138,7 @@ export function createRooms(
 
   const broadcastSnap = (room: Room) => {
     const json = encodeGame(room.game);
-    for (const m of room.members.values()) m.send(encodeSnap(room.game.tick, m.ack, json));
+    for (const m of room.members.values()) m.send(encodeSnap(room.game.tick, m.ack, m.queue.length, json));
   };
 
   const tickRoom = (room: Room) => {
@@ -154,7 +156,15 @@ export function createRooms(
       const next = m.queue.shift();
       if (next) {
         m.ack = next[0];
+        m.last = next[1];
         inputs.set(m.id, next[1]);
+      } else if (m.ack > 0) {
+        // Starved by network jitter: play the last input AND count it as the client's next sequence
+        // number. Server and client stay on the same timeline, so the only possible misprediction is a
+        // key change landing exactly on this tick. (Waiting instead would shift the whole world by a
+        // tick: measured 3× more own-player correction at 40 ms jitter.)
+        m.ack++;
+        inputs.set(m.id, m.last);
       }
     }
     step(g, inputs);
@@ -215,7 +225,7 @@ export function createRooms(
     const blue = teamCount(g, 'blue', false);
     const team: Team = blue < red ? 'blue' : 'red';
     addPlayer(g, id, name, team);
-    room.members.set(id, { id, send, queue: [], ack: 0 });
+    room.members.set(id, { id, send, queue: [], ack: 0, last: 0 });
     room.emptySince = null;
     byClient.set(id, room);
     rebalance(room);
@@ -293,7 +303,10 @@ export function createRooms(
     input(id, seq, bits) {
       const room = byClient.get(id);
       const m = room?.members.get(id);
-      if (room?.state === 'playing' && m && seq > (m.queue.at(-1)?.[0] ?? m.ack)) m.queue.push([seq, bits]);
+      if (room?.state !== 'playing' || !m) return;
+      // Arrived after a stand-in already played its tick: still the freshest intent.
+      if (seq <= m.ack) m.last = bits;
+      else if (seq > (m.queue.at(-1)?.[0] ?? m.ack)) m.queue.push([seq, bits]);
     },
     switchTeam(id, team) {
       moveTo(id, id, team);

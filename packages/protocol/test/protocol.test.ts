@@ -82,7 +82,7 @@ describe('oyun mesajları', () => {
     const { encodeGame, encodeSnap } = await import('../src/index');
     const g = createGame(1);
     g.ball.x = 1 / 3;
-    const m = decodeServerMessage(encodeSnap(4, 9, encodeGame(g)));
+    const m = decodeServerMessage(encodeSnap(4, 9, 2, encodeGame(g)));
     expect(m?.t === 'snap' && m.ack === 9 && m.g.ball.x).toBe(0.333);
   });
 });

@@ -58,8 +58,8 @@ export type ServerMessage =
   | { t: 'error'; code: ErrorCode; message: string }
   | { t: 'joined'; code: string; playerId: string }
   | { t: 'room'; room: RoomInfo }
-  /** Authoritative state at `tick`; `ack` = last input sequence of yours already applied. */
-  | { t: 'snap'; tick: number; ack: number; g: Game };
+  /** Authoritative state at `tick`; `ack` = last input sequence of yours already applied; `q` = your inputs still queued on the server (clock-sync feedback). */
+  | { t: 'snap'; tick: number; ack: number; q: number; g: Game };
 
 type Obj = Record<string, unknown>;
 const ERROR_CODES: readonly string[] = [
@@ -160,8 +160,8 @@ export function decodeClientMessage(raw: string): ClientMessage | null {
 }
 
 /** Server encodes the game once per tick and wraps it per client (ack differs). */
-export function encodeSnap(tick: number, ack: number, gameJson: string): string {
-  return `{"t":"snap","tick":${tick},"ack":${ack},"g":${gameJson}}`;
+export function encodeSnap(tick: number, ack: number, q: number, gameJson: string): string {
+  return `{"t":"snap","tick":${tick},"ack":${ack},"q":${q},"g":${gameJson}}`;
 }
 
 /** Positions/velocities rounded to 1/1000 px: smaller packets, harmless for prediction. */
@@ -213,7 +213,7 @@ export function decodeServerMessage(raw: string): ServerMessage | null {
     }
     case 'snap':
       return isUint(m.tick) && isUint(m.ack) && isGame(m.g)
-        ? { t: 'snap', tick: m.tick, ack: m.ack, g: m.g }
+        ? { t: 'snap', tick: m.tick, ack: m.ack, q: isUint(m.q) ? m.q : 0, g: m.g }
         : null;
     default:
       return null;
