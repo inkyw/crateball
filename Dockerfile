@@ -2,6 +2,9 @@ FROM node:24-alpine AS build
 WORKDIR /app
 RUN corepack enable
 COPY . .
+# Baked into the client so it can tell when the server runs a newer release.
+ARG APP_VERSION=dev
+ENV APP_VERSION=$APP_VERSION
 RUN pnpm install --frozen-lockfile && pnpm build
 
 FROM node:24-alpine

@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+  define: { __APP_VERSION__: JSON.stringify(process.env.APP_VERSION ?? 'dev') },
   server: {
     port: 5173,
     strictPort: true,

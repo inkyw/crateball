@@ -104,6 +104,29 @@ const conn = connect({
     btn.onclick = () => location.reload();
     banner.append(btn);
   },
+  onServerVersion: (v) => {
+    // A deploy restarts the server: everyone reconnects and lands here. Old client code must not keep
+    // playing against new server code, so reload into the new release (at most twice a minute, in case
+    // a stale cache keeps serving the old page).
+    if (__APP_VERSION__ === 'dev' || v === 'dev' || v === 'unknown' || v === __APP_VERSION__) return;
+    let tries: number[] = [];
+    try {
+      tries = (JSON.parse(sessionStorage.getItem('reloads') ?? '[]') as number[]).filter(
+        (t) => Date.now() - t < 60_000,
+      );
+    } catch {
+      /* storage blocked */
+    }
+    if (tries.length >= 2) return;
+    try {
+      sessionStorage.setItem('reloads', JSON.stringify([...tries, Date.now()]));
+    } catch {
+      /* storage blocked */
+    }
+    banner.hidden = false;
+    banner.textContent = 'Crateball was updated — reloading…';
+    setTimeout(() => location.reload(), 1500);
+  },
   onMessage: (m) => {
     switch (m.t) {
       case 'joined':

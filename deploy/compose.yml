@@ -2,7 +2,10 @@
 name: crateball
 services:
   game:
-    build: ..
+    build:
+      context: ..
+      args:
+        APP_VERSION: ${APP_VERSION:-unknown}
     image: crateball:latest
     restart: unless-stopped
     environment:

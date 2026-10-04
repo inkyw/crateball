@@ -23,6 +23,8 @@ export interface ConnectionOptions {
   onStatus?: (status: NetStatus) => void;
   /** Every decoded message after the welcome handshake. */
   onMessage?: (m: ServerMessage) => void;
+  /** The server's release, from the welcome handshake. */
+  onServerVersion?: (version: string) => void;
 }
 
 export interface Connection {
@@ -61,6 +63,7 @@ export function connect(o: ConnectionOptions): Connection {
       if (!m) return;
       if (m.t === 'welcome') {
         clientId = m.clientId;
+        if (m.version) o.onServerVersion?.(m.version);
         attempts = 0;
         setStatus('open');
         for (const q of queued.splice(0)) s.send(encode(q));

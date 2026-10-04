@@ -28,7 +28,7 @@ export function attachWebSocket(
   server: Server,
   log: Logger,
   rooms: Rooms,
-  opts: { helloTimeoutMs?: number } = {},
+  opts: { helloTimeoutMs?: number; version?: string } = {},
 ): WebSocketServer {
   const wss = new WebSocketServer({ server, path: '/ws', maxPayload: MAX_MESSAGE_BYTES });
   wss.on('connection', (socket) => {
@@ -70,7 +70,13 @@ export function attachWebSocket(
         greeted = true;
         clearTimeout(timer);
         clog.info('oyuncu bağlandı');
-        send({ t: 'welcome', protocolVersion: PROTOCOL_VERSION, clientId, serverTime: Date.now() });
+        send({
+          t: 'welcome',
+          protocolVersion: PROTOCOL_VERSION,
+          clientId,
+          serverTime: Date.now(),
+          version: opts.version,
+        });
         return;
       }
       if (!greeted) {

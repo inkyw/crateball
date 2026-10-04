@@ -38,7 +38,7 @@ export async function startServer(
       res.end();
     });
   });
-  const wss = attachWebSocket(server, log, rooms, opts);
+  const wss = attachWebSocket(server, log, rooms, { ...opts, version: cfg.version });
   try {
     await new Promise<void>((resolve, reject) => {
       // ws, http sunucusunun 'error' olayını yeniden yayar; ikisini de dinle ki yakalanmamış hata olmasın.

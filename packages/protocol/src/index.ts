@@ -84,7 +84,7 @@ export interface RoomListing {
 }
 
 export type ServerMessage =
-  | { t: 'welcome'; protocolVersion: number; clientId: string; serverTime: number }
+  | { t: 'welcome'; protocolVersion: number; clientId: string; serverTime: number; version?: string }
   | { t: 'pong'; id: number; serverTime: number }
   | { t: 'error'; code: ErrorCode; message: string }
   | { t: 'joined'; code: string; playerId: string }
@@ -228,7 +228,13 @@ export function decodeServerMessage(raw: string): ServerMessage | null {
   switch (m.t) {
     case 'welcome':
       return isUint(m.protocolVersion) && isStr(m.clientId, 64) && typeof m.serverTime === 'number'
-        ? { t: 'welcome', protocolVersion: m.protocolVersion, clientId: m.clientId, serverTime: m.serverTime }
+        ? {
+            t: 'welcome',
+            protocolVersion: m.protocolVersion,
+            clientId: m.clientId,
+            serverTime: m.serverTime,
+            ...(isStr(m.version, 64) ? { version: m.version } : {}),
+          }
         : null;
     case 'pong':
       return isUint(m.id) && typeof m.serverTime === 'number'
