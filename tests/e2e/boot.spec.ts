@@ -1,7 +1,11 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 
-type GameState = { frame: number; net: { status: string; clientId: string | null } };
+type GameState = {
+  frame: number;
+  net: { status: string; clientId: string | null };
+  sim: { tick: number; phase: string; seed: number };
+};
 const LOG_FILE = 'logs/dev.log';
 
 test('sahne açılır ve sunucuya bağlanır', async ({ page }) => {
@@ -17,6 +21,8 @@ test('sahne açılır ve sunucuya bağlanır', async ({ page }) => {
   );
   const state = await page.evaluate(() => window.__game?.getState() as GameState);
   expect(state.frame).toBeGreaterThan(0);
+  await page.waitForFunction(() => ((window.__game?.getState() as GameState | undefined)?.sim.tick ?? 0) > 5);
+  expect((await page.evaluate(() => window.__game?.getState() as GameState)).sim.phase).toBe('day');
   expect(state.net.clientId).toHaveLength(8);
 });
 

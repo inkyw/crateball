@@ -10,5 +10,17 @@ export default defineConfig({
       '/__log': 'http://localhost:3000',
     },
   },
-  build: { outDir: '../../dist/client', emptyOutDir: true, target: 'es2022' },
+  build: {
+    outDir: '../../dist/client',
+    emptyOutDir: true,
+    target: 'es2022',
+    chunkSizeWarningLimit: 900,
+    // three ayrı chunk (M0 backlog). Vite 8.3 / Rolldown 1.2: nesne biçimli manualChunks desteklenmez;
+    // tiplenen yol output.codeSplitting.groups (rolldownOptions).
+    rolldownOptions: {
+      output: {
+        codeSplitting: { groups: [{ name: 'three', test: /[\\/]node_modules[\\/]three[\\/]/ }] },
+      },
+    },
+  },
 });
