@@ -64,3 +64,5 @@ M0 incelemelerinde "Minor" olarak işaretlenip ertelenen maddeler. M1 planı yaz
 
 ### client
 - `LocalSession`: `skipTo` bekleyen girdiyi tüketiyor; duraklatılmışken girdi kilitleri kalıyor; `onBlur` bayat sürüklemeyi bırakıyor; Esc sonrası `attackHeld` devam ediyor; `HOTBAR` cast; test boşlukları (basılı tutma tekrarı, blur, null hover geri dönüşü).
+
+- sim test: `creatures.test.ts` (~85) eski çevreleme fixture'ında oyuncu (0, 0.5) Hearth ayak izinin içinde — çit halkası içinde boş bir noktaya taşı (M1 son yeniden inceleme).
