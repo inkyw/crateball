@@ -49,8 +49,11 @@ const setMuted = (m: boolean) => {
     /* private mode */
   }
 };
-addEventListener('pointerdown', () => sound.unlock());
-addEventListener('keydown', () => sound.unlock());
+// Browsers only start audio from a user gesture; any of these counts (capture phase, so nothing can
+// swallow it first).
+for (const ev of ['pointerdown', 'click', 'keydown', 'touchstart'] as const)
+  addEventListener(ev, () => sound.unlock(), { capture: true, passive: true });
+document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && sound.unlock());
 
 let room: RoomInfo | null = null;
 let code: string | null = null;
@@ -268,6 +271,7 @@ function getState() {
       rtt: Math.round(rtt),
     },
     render: { fps: stats.fps, frameMs: stats.frameMs, particles: fx.count },
+    sound: sound.debug(),
     pred: {
       pending: pred.pending,
       corrections: pred.corrections,

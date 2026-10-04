@@ -9,6 +9,8 @@ export interface Sound {
   readonly muted: boolean;
   setMuted(m: boolean): void;
   play(e: GameEvent): void;
+  /** For the debug panel: audio state and how many effects played. */
+  debug(): { state: string; played: number; muted: boolean };
 }
 
 export function createSound(): Sound {
@@ -16,6 +18,7 @@ export function createSound(): Sound {
   let master: GainNode | null = null;
   let noiseBuf: AudioBuffer | null = null;
   let muted = false;
+  let played = 0;
 
   const tone = (type: OscillatorType, f0: number, f1: number, dur: number, vol: number, at = 0) => {
     if (!ctx || !master) return;
@@ -117,7 +120,13 @@ export function createSound(): Sound {
       const d = noiseBuf.getChannelData(0);
       for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     },
+    debug() {
+      return { state: ctx?.state ?? 'not created', played, muted };
+    },
     play(e) {
+      played++;
+      // A context can be created or left suspended (tab switch, OS audio route change): retry.
+      if (ctx && ctx.state !== 'running') void ctx.resume();
       switch (e.type) {
         case 'kick':
           sfx.kick(e.power);
