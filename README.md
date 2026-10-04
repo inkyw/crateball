@@ -1,5 +1,7 @@
 # Crateball
 
+**Play:** https://playcrateball.com
+
 Browser 3v3 arcade football in the spirit of haxball. Open a link, create a room, share the code. Crates
 drop at random spots: a **gun** (3 hits and you're out), a **mine** (lose a heart and slow down), **ice**
 (frozen for a moment), plus speed, a shield and a power kick.
@@ -35,6 +37,7 @@ pnpm install
 pnpm dev        # http://localhost:5173
 pnpm verify     # format, types, lint, unit and browser tests
 pnpm docker:prod
+pnpm deploy     # ship the committed code to the server (waits for running matches)
 ```
 
 Add `?lag=100&jitter=30` to the URL in dev to simulate a slow connection. Design and netcode notes

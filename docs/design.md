@@ -54,6 +54,14 @@ oyuncu kutuya değince açılır.
   birikmesin). Girdi gelmezse son girdi tekrarlanır.
 - Sim yalnızca `+ - * / sqrt` kullanır (trig yok) → motorlar arası aynı sonuç.
 
+## Yayın
+
+- İstanbul'da tek bir VPS (Türkiye'den ~20 ms). Docker Compose: oyun + Caddy (otomatik HTTPS),
+  domain `playcrateball.com`. Cloudflare proxy kullanılmıyor (Türkiye'den Amsterdam'a dolaşıyordu).
+- Durum tamamen bellekte (veritabanı yok); yayın açık odaları siler, `pnpm deploy` maç bitene kadar
+  bekler.
+- Telemetri: istemci 2 sn'lik özet + R ile işaretli rapor; sunucu oda başına girdisiz tick ve tick süresi.
+
 ## Fikir havuzu
 
 Penaltı/serbest vuruş yok; müzik; mobil kontroller; bot zorluk seviyesi;

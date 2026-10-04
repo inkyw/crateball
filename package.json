@@ -17,7 +17,8 @@
     "verify": "pnpm format:check && pnpm typecheck && pnpm lint && pnpm test && pnpm e2e",
     "docker:prod": "sh scripts/docker-smoke.sh",
     "deploy": "sh scripts/deploy.sh",
-    "logs": "ssh -p SSH_PORT -i ~/.ssh/crateball_ed25519 root@VPS_IP 'docker compose -f /opt/crateball/deploy/compose.yml logs -f --tail 50 game'"
+    "logs": "ssh -p SSH_PORT -i ~/.ssh/crateball_ed25519 root@VPS_IP 'docker compose -f /opt/crateball/deploy/compose.yml logs -f --tail 50 game'",
+    "watch": "ssh -p SSH_PORT -i ~/.ssh/crateball_ed25519 root@VPS_IP 'docker logs -f --since 1s crateball-game-1 2>&1' | node scripts/watch.mjs"
   },
   "packageManager": "pnpm@12.8.1+sha512.f64ba907507f5ceafe06c8d38e6052d0179444580ec1279ddd5bfc11cb48aa8a2644b66598e07e761da84872a9fc57d5f902b87fa49d024198d558612aabbe45",
   "devDependencies": {

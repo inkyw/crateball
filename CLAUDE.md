@@ -23,6 +23,8 @@ unset -f node npm npx pnpm pnpx corepack 2>/dev/null; export PATH="$HOME/.nvm/ve
 | `pnpm test` / `pnpm e2e` | Sadece Vitest / sadece Playwright |
 | `pnpm build` | `dist/client` + `dist/server/server.mjs` |
 | `pnpm docker:prod` | Prod imajını yerelde kurup smoke testini koşar (`docker smoke OK`) |
+| `pnpm deploy` | Commit'lenmiş HEAD'i VPS'e gönderir, orada derler. Maç oynanıyorsa bekler; `pnpm deploy --force` beklemez (açık odalar silinir) |
+| `pnpm logs` / `pnpm watch` | VPS'teki oyun logunu canlı izler / sadece önemli olayları süzer (`scripts/watch.mjs`) |
 
 ## Mimari kuralları (lint ile zorlanır)
 
@@ -33,9 +35,18 @@ unset -f node npm npx pnpm pnpx corepack 2>/dev/null; export PATH="$HOME/.nvm/ve
 - `packages/devtools` yalnızca `import.meta.env.DEV` dalında yüklenir; prod paketine girmez.
 - Oyun sabitleri yalnızca `packages/sim/src/content/rules.ts`; renkler `packages/client/src/render.ts` başında.
 
+## Yayın (prod)
+
+- Adres: **https://playcrateball.com** (GoDaddy DNS: A @ → VPS, CNAME www → @). Caddy HTTPS sertifikasını kendisi alır/yeniler.
+- Sunucu: İstanbul VPS `VPS_IP`, SSH port **SSH_PORT**, `root`, yalnızca anahtarla (`~/.ssh/crateball_ed25519`; yedeği `~/Desktop/backup/crateball/`). ufw: SSH_PORT, 80, 443 açık. Güvenlik güncellemeleri otomatik.
+- Sunucuda `/opt/crateball`: `deploy/compose.yml` (oyun + Caddy), `deploy/Caddyfile`. Loglar Docker'da döner (5 × 20 MB).
+- Odalar bellekte: yeniden başlatma açık odaları siler. Tek süreç, tek makine olmalı.
+- `/health`: `{ ok, version, rooms, playing, players }`.
+
 ## Debug akışı
 
-- Tüm loglar tek dosyada: `logs/dev.log` (sunucu + tarayıcı konsolu, `"src":"client"`).
+- Dev: tüm loglar tek dosyada, `logs/dev.log` (sunucu + tarayıcı konsolu, `"src":"client"`).
+- Prod telemetri: her istemci oyunda 2 sn'de bir `istemci istatistik` (fps, en uzun kare, ping, bekleyen girdi, kendi oyuncusunun düzeltmesi px) yollar; sunucu 5 sn'de bir `oda istatistik` (girdisiz tick, en yavaş tick) yazar. Oyuncu **R**'ye (ya da F9) basınca son ~10 sn `oyuncu raporu (R)` olarak loglanır. `pnpm watch` bunları süzer.
 - `window.__game` (dev): `getState()` → `{ frame, screen, room, net(rtt), render(particles), pred(pending, corrections), sim(...) }`; `cmd('fx', 'mine'|'ice'|'goal'…)` efekt dener. F1: FPS, bağlantı+RTT, bekleyen girdi, düzeltme sayısı.
 - Gecikme denemesi (yalnızca dev): URL'ye `&lag=100&jitter=20` ekle (tek yön ms; ping ≈ 2×lag). F1'de RTT/pending/corrections. Otomatik test: `tests/e2e/multiplayer.spec.ts` içindeki `withLatency`.
 - Determinizm: aynı seed + aynı girdi → aynı `hashState`; şüphede `packages/sim/test/game.test.ts`.

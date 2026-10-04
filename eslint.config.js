@@ -34,7 +34,14 @@ export default defineConfig(
   ...tseslint.configs.recommended,
   // Node globalleri yalnızca Node'da koşan dosyalarda (M0 backlog).
   {
-    files: ['packages/server/**', 'tests/**', '*.config.ts', 'eslint.config.js', 'packages/*/vite.config.ts'],
+    files: [
+      'packages/server/**',
+      'scripts/**',
+      'tests/**',
+      '*.config.ts',
+      'eslint.config.js',
+      'packages/*/vite.config.ts',
+    ],
     languageOptions: { globals: { ...globals.node } },
   },
   {
