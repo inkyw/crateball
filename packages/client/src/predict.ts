@@ -20,6 +20,10 @@ export interface Vec {
 const SNAP_DISTANCE = 80;
 /** The visual offset never trails the true position by more than this. */
 const MAX_OFFSET = 40;
+/** The ball is different: someone else's hard kick reaches us a ping late, by which time the ball is
+ * easily 100+ px further on. That must glide, not jump; only the kickoff reset (≥ 400 px) is a teleport. */
+const BALL_SNAP_DISTANCE = 250;
+const BALL_MAX_OFFSET = 140;
 /** Offset decay rates. Others and the ball: ≈ 90 ms half-life, since their corrections come from
  * guessing someone else's input. Own player: small offsets close fast (≈ 50 ms) so control stays
  * tight, but a bump from a collision closes slower (down to ≈ 120 ms) so it reads as a push. */
@@ -134,7 +138,9 @@ export function createPredictor(): Predictor {
         const dx = old.x - now.x;
         const dy = old.y - now.y;
         const e = err.get(id) ?? { x: 0, y: 0 };
-        if (dx * dx + dy * dy > SNAP_DISTANCE * SNAP_DISTANCE) {
+        const snapAt = id === 'ball' ? BALL_SNAP_DISTANCE : SNAP_DISTANCE;
+        const maxOffset = id === 'ball' ? BALL_MAX_OFFSET : MAX_OFFSET;
+        if (dx * dx + dy * dy > snapAt * snapAt) {
           // A real teleport in this one correction (respawn, kickoff reset): show it as is.
           e.x = e.y = 0;
         } else {
@@ -143,9 +149,9 @@ export function createPredictor(): Predictor {
           e.x += dx;
           e.y += dy;
           const len = Math.sqrt(e.x * e.x + e.y * e.y);
-          if (len > MAX_OFFSET) {
-            e.x *= MAX_OFFSET / len;
-            e.y *= MAX_OFFSET / len;
+          if (len > maxOffset) {
+            e.x *= maxOffset / len;
+            e.y *= maxOffset / len;
           }
           if (dx * dx + dy * dy > 0.25) corrections++;
           const d = Math.sqrt(dx * dx + dy * dy);

@@ -10,10 +10,11 @@ services:
       PORT: '8080'
       APP_VERSION: ${APP_VERSION:-unknown}
     expose: ['8080']
-    # Logs stay on the server and rotate: at most 5 × 20 MB.
+    # Logs go to the server's journal so they survive redeploys (journald caps the total size).
+    # Read them with: journalctl -o cat CONTAINER_TAG=crateball-game
     logging:
-      driver: json-file
-      options: { max-size: 20m, max-file: '5' }
+      driver: journald
+      options: { tag: crateball-game }
   caddy:
     image: caddy:2
     restart: unless-stopped

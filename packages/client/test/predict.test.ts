@@ -97,3 +97,33 @@ describe('ışınlanma', () => {
     expect(c.tick(0)).toBe(6);
   });
 });
+
+describe('top', () => {
+  it('başkasının sert vuruşu geç gelince top 120 px atlamaz, kayarak yerine gider', () => {
+    const c = createPredictor();
+    c.setMe('me');
+    const g = createGame(1);
+    addPlayer(g, 'me', 'Me', 'red');
+    c.snapshot(0, g);
+    const kicked = cloneGame(g);
+    kicked.ball.x = 120;
+    c.snapshot(0, kicked);
+    expect(c.pos('ball', 1)!.x).toBeLessThan(5);
+    c.decay(0.1);
+    const mid = c.pos('ball', 1)!.x;
+    expect(mid).toBeGreaterThan(30);
+    expect(mid).toBeLessThan(110);
+  });
+  it('santra (top kaleden ortaya) hâlâ doğrudan ışınlanır', () => {
+    const c = createPredictor();
+    c.setMe('me');
+    const g = createGame(1);
+    addPlayer(g, 'me', 'Me', 'red');
+    g.ball.x = 440;
+    c.snapshot(0, g);
+    const reset = cloneGame(g);
+    reset.ball.x = 0;
+    c.snapshot(0, reset);
+    expect(c.pos('ball', 1)!.x).toBe(0);
+  });
+});

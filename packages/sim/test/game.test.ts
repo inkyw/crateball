@@ -232,3 +232,44 @@ describe('pas', () => {
     expect(bounceBack(0)).toBeLessThan(bounceBack(KICK));
   });
 });
+
+describe('gol sonrası ve yeniden doğma', () => {
+  it('gol sonrası santrada her şey sıfırlanır: can, silah, etkiler, ölüler, kutular', () => {
+    const g = createGame(1);
+    const a = addPlayer(g, 'a', 'A', 'red');
+    const b = addPlayer(g, 'b', 'B', 'blue');
+    g.phase = 'play';
+    Object.assign(a, { hp: 1, gun: 4, shield: true, power: true, slow: 100, boost: 50 });
+    Object.assign(b, { hp: 0, dead: 120, frozen: 30 });
+    g.crates = [{ id: 99, x: 100, y: 100 }];
+    g.ball = { x: FIELD.halfW - 5, y: 0, vx: 6, vy: 0 };
+    run(g, 10);
+    expect(g.phase).toBe('goal');
+    run(g, 160);
+    expect(g.phase).toBe('kickoff');
+    for (const p of [a, b]) {
+      expect(p).toMatchObject({
+        hp: PLAYER.maxHp,
+        dead: 0,
+        gun: 0,
+        shield: false,
+        power: false,
+        slow: 0,
+        boost: 0,
+        frozen: 0,
+      });
+    }
+    expect(g.crates).toEqual([]);
+  });
+  it('ölen oyuncu orta çizginin üst ucunda, kendi yarısında doğar', () => {
+    const g = createGame(1);
+    const a = addPlayer(g, 'a', 'A', 'blue');
+    g.phase = 'play';
+    Object.assign(a, { hp: 0, dead: 1, x: 9999, y: 9999 });
+    step(g);
+    expect(a.dead).toBe(0);
+    expect(a.x).toBeGreaterThan(0);
+    expect(a.x).toBeLessThan(60);
+    expect(a.y).toBeLessThan(-FIELD.halfH + 40);
+  });
+});

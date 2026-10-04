@@ -27,6 +27,9 @@ export const PLAYER = {
   softTouchBounce: 0.1,
   maxHp: 3,
   respawn: sec(3),
+  /** Respawn point: top of the halfway line, this far into your own half / below the touchline. */
+  respawnOffsetX: 30,
+  respawnInsetY: 6,
 };
 
 export const BALL = { radius: 10, invMass: 1, bounce: 0.5, damping: 0.99 };

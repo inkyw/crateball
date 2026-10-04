@@ -39,7 +39,7 @@ unset -f node npm npx pnpm pnpx corepack 2>/dev/null; export PATH="$HOME/.nvm/ve
 
 - Adres: **https://playcrateball.com** (GoDaddy DNS: A @ → VPS, CNAME www → @). Caddy HTTPS sertifikasını kendisi alır/yeniler.
 - Sunucu: İstanbul VPS `VPS_IP`, SSH port **SSH_PORT**, `root`, yalnızca anahtarla (`~/.ssh/crateball_ed25519`; yedeği `~/Desktop/backup/crateball/`). ufw: SSH_PORT, 80, 443 açık. Güvenlik güncellemeleri otomatik.
-- Sunucuda `/opt/crateball`: `deploy/compose.yml` (oyun + Caddy), `deploy/Caddyfile`. Loglar Docker'da döner (5 × 20 MB).
+- Sunucuda `/opt/crateball`: `deploy/compose.yml` (oyun + Caddy), `deploy/Caddyfile`. Oyun logu sunucunun journald'ına gider (yayınlardan sonra da kalır, toplam en fazla 500 MB): `journalctl -o cat CONTAINER_TAG=crateball-game`.
 - Odalar bellekte: yeniden başlatma açık odaları siler. Tek süreç, tek makine olmalı.
 - `/health`: `{ ok, version, rooms, playing, players }`.
 

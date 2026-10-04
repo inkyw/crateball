@@ -128,35 +128,29 @@ function placeAtSpawn(g: Game, p: Player, slot: number): void {
   p.fy = 0;
 }
 
+/** Every kickoff (match start and after each goal) is a clean slate: full health, no items or
+ * effects, the dead are back, no crates, bullets or blasts on the pitch. */
 function resetKickoff(g: Game, kickoffTeam: Team): void {
   g.phase = 'kickoff';
   g.phaseT = 0;
   g.kickoffTeam = kickoffTeam;
   g.ball = { x: 0, y: 0, vx: 0, vy: 0 };
   g.bullets = [];
+  g.blasts = [];
+  g.crates = [];
+  g.nextCrate = g.tick + CRATES.firstAfter;
   const slots = { red: 0, blue: 0 };
-  for (const p of g.players) placeAtSpawn(g, p, slots[p.team]++);
+  for (const p of g.players) {
+    Object.assign(p, { hp: PLAYER.maxHp, dead: 0, frozen: 0, slow: 0, boost: 0, cooldown: 0 });
+    Object.assign(p, { shield: false, power: false, gun: 0, kickArmed: true, useArmed: true });
+    placeAtSpawn(g, p, slots[p.team]++);
+  }
 }
 
 export function restartMatch(g: Game): void {
   g.score = [0, 0];
   g.clock = g.settings.minutes * 60 * TICK_HZ;
-  g.bullets = [];
-  g.blasts = [];
-  g.crates = [];
-  g.nextCrate = g.tick + CRATES.firstAfter;
-  for (const p of g.players) {
-    Object.assign(p, {
-      hp: PLAYER.maxHp,
-      dead: 0,
-      frozen: 0,
-      slow: 0,
-      boost: 0,
-      shield: false,
-      power: false,
-    });
-    Object.assign(p, { gun: 0, goals: 0 });
-  }
+  for (const p of g.players) p.goals = 0;
   resetKickoff(g, 'red');
 }
 
@@ -188,9 +182,13 @@ function controlPlayer(g: Game, p: Player): void {
   if (p.cooldown > 0) p.cooldown--;
   if (p.dead > 0) {
     if (--p.dead === 0) {
+      // Back in at the top of the halfway line, on your own side.
       p.hp = PLAYER.maxHp;
-      placeAtSpawn(g, p, 0);
-      p.x = side(p.team) * (FIELD.halfW - 40);
+      p.x = side(p.team) * PLAYER.respawnOffsetX;
+      p.y = -(FIELD.halfH - PLAYER.radius - PLAYER.respawnInsetY);
+      p.vx = p.vy = 0;
+      p.fx = -side(p.team);
+      p.fy = 0;
     }
     return;
   }
