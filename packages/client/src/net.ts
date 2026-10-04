@@ -19,6 +19,8 @@ export interface SocketLike {
 export interface ConnectionOptions {
   url: string;
   createSocket?: (url: string) => SocketLike;
+  /** Sent in hello so the server can give a reconnecting tab its old slot back. */
+  sessionToken?: string;
   schedule?: (fn: () => void, ms: number) => unknown;
   onStatus?: (status: NetStatus) => void;
   /** Every decoded message after the welcome handshake. */
@@ -57,7 +59,14 @@ export function connect(o: ConnectionOptions): Connection {
     setStatus('connecting');
     const s = createSocket(o.url);
     socket = s;
-    s.onopen = () => s.send(encode({ t: 'hello', protocolVersion: PROTOCOL_VERSION }));
+    s.onopen = () =>
+      s.send(
+        encode({
+          t: 'hello',
+          protocolVersion: PROTOCOL_VERSION,
+          ...(o.sessionToken ? { sessionToken: o.sessionToken } : {}),
+        }),
+      );
     s.onmessage = (ev) => {
       const m = typeof ev.data === 'string' ? decodeServerMessage(ev.data) : null;
       if (!m) return;

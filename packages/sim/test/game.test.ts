@@ -273,3 +273,24 @@ describe('gol sonrası ve yeniden doğma', () => {
     expect(a.y).toBeLessThan(-FIELD.halfH + 40);
   });
 });
+
+describe('inceleme düzeltmeleri (sim)', () => {
+  it('çok hızlı top kalenin yanındaki çizgiden geçip gol olmaz (#4)', () => {
+    const g = createGame(1);
+    addPlayer(g, 'a', 'A', 'red').x = -300;
+    g.phase = 'play';
+    g.ball = { x: 409, y: 100, vx: 23, vy: 0 };
+    run(g, 5);
+    expect(g.score).toEqual([0, 0]);
+    expect(g.ball.x).toBeLessThan(FIELD.halfW);
+  });
+  it('aynı noktada doğan iki oyuncu ayrılır (#11)', () => {
+    const g = createGame(1);
+    const a = addPlayer(g, 'a', 'A', 'red');
+    const b = addPlayer(g, 'b', 'B', 'red');
+    g.phase = 'play';
+    for (const p of [a, b]) Object.assign(p, { hp: 0, dead: 1, x: 9999, y: 9999 });
+    run(g, 10);
+    expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThan(PLAYER.radius * 2 - 1);
+  });
+});

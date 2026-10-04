@@ -39,13 +39,15 @@ export const EMPTY_ROOM_TTL_MS = 2 * 60_000;
 
 interface Member {
   id: string;
-  send: (raw: string) => void;
+  send: Send;
   queue: Array<[seq: number, bits: number]>;
   ack: number;
   /** Ticks played with a stand-in input since the last stats line. */
   starved: number;
   /** Last input applied; stands in when the queue runs dry. */
   last: number;
+  /** Set while the socket is gone: the player keeps their slot (and host role) until it fires. */
+  awayTimer: ReturnType<typeof setTimeout> | null;
 }
 
 export interface Room {
@@ -64,10 +66,28 @@ export interface Room {
 
 type Result = Room | ErrorCode;
 
+/** `droppable`: a snapshot, which may be skipped for a client that is not keeping up. */
+type Send = (raw: string, droppable?: boolean) => void;
+
 export interface Rooms {
-  create(id: string, name: string, roomName: string, isPublic: boolean, settings: Settings, send: Send): Room;
+  create(
+    id: string,
+    name: string,
+    roomName: string,
+    isPublic: boolean,
+    settings: Settings,
+    send: Send,
+  ): Result;
   join(code: string, id: string, name: string, send: Send): Result;
+  /** Deliberate leave (menu, or switching rooms): the slot is freed now. */
   leave(id: string): void;
+  /** Socket closed: keep the slot for a grace period so a reconnect gets it back. */
+  disconnect(id: string): void;
+  /** Same player is back on a new socket within the grace period. */
+  reattach(id: string, send: Send): Room | null;
+  isMember(id: string): boolean;
+  /** In a room but without a socket (inside the reconnect grace period). */
+  isAway(id: string): boolean;
   input(id: string, seq: number, bits: number): void;
   switchTeam(id: string, team: Team): void;
   move(by: string, id: string, team: Team): ErrorCode | null;
@@ -85,9 +105,11 @@ export interface Rooms {
   readonly rooms: ReadonlyMap<string, Room>;
 }
 
-type Send = (raw: string) => void;
-
 const MAX_PLAYERS = MATCH.maxPerTeam * 2;
+/** Hard cap on rooms held in memory (anyone can create one). */
+export const MAX_ROOMS = 200;
+/** How long a dropped player keeps their slot (and host role). */
+export const RECONNECT_GRACE_MS = 20_000;
 
 /** Bots (if enabled) fill the smaller side so every match is at least 1v1 and teams stay even. */
 function rebalance(room: Room): void {
@@ -148,7 +170,8 @@ export function createRooms(
 
   const broadcastSnap = (room: Room) => {
     const json = encodeGame(room.game);
-    for (const m of room.members.values()) m.send(encodeSnap(room.game.tick, m.ack, m.queue.length, json));
+    for (const m of room.members.values())
+      m.send(encodeSnap(room.game.tick, m.ack, m.queue.length, json), true);
   };
 
   const tickRoom = (room: Room) => {
@@ -250,6 +273,8 @@ export function createRooms(
   const stop = () => {
     if (timer) clearInterval(timer);
     timer = null;
+    for (const r of rooms.values())
+      for (const m of r.members.values()) if (m.awayTimer) clearTimeout(m.awayTimer);
   };
 
   const newCode = () => {
@@ -266,7 +291,7 @@ export function createRooms(
     const blue = teamCount(g, 'blue', false);
     const team: Team = blue < red ? 'blue' : 'red';
     addPlayer(g, id, name, team);
-    room.members.set(id, { id, send, queue: [], ack: 0, starved: 0, last: 0 });
+    room.members.set(id, { id, send, queue: [], ack: 0, starved: 0, last: 0, awayTimer: null });
     room.emptySince = null;
     byClient.set(id, room);
     rebalance(room);
@@ -279,6 +304,8 @@ export function createRooms(
     const room = byClient.get(by);
     if (!room) return 'room_not_found';
     if (by !== id && room.host !== by) return 'not_host';
+    // The host rearranges teams in the lobby only; anyone may switch their own team any time.
+    if (by !== id && room.state !== 'lobby') return 'bad_message';
     const p = room.game.players.find((o) => o.id === id);
     if (!p || p.team === team) return null;
     if (!p.bot && teamCount(room.game, team, false) >= MATCH.maxPerTeam) return 'room_full';
@@ -291,15 +318,22 @@ export function createRooms(
     return null;
   };
 
-  const leave = (id: string) => {
+  const leave = (id: string, afterDisconnect = false) => {
     const room = byClient.get(id);
     if (!room) return;
+    const m = room.members.get(id);
+    if (m?.awayTimer) clearTimeout(m.awayTimer);
     byClient.delete(id);
     room.members.delete(id);
     removePlayer(room.game, id);
     if (room.members.size === 0) {
-      room.emptySince = now();
       room.state = 'lobby';
+      // Walked away on purpose: nobody needs the room. Dropped: keep it a while so a refresh finds it.
+      if (afterDisconnect) room.emptySince = now();
+      else {
+        rooms.delete(room.code);
+        log.info({ room: room.code }, 'boş oda kapandı');
+      }
       return;
     }
     if (room.host === id) room.host = room.members.keys().next().value as string;
@@ -307,12 +341,43 @@ export function createRooms(
     announce(room);
   };
 
+  const reattach = (id: string, send: Send): Room | null => {
+    const room = byClient.get(id);
+    const m = room?.members.get(id);
+    if (!room || !m) return null;
+    if (m.awayTimer) clearTimeout(m.awayTimer);
+    m.awayTimer = null;
+    m.send = send;
+    // A reloaded page restarts its sequence numbers; a fresh count avoids treating them as late.
+    m.ack = 0;
+    m.queue = [];
+    log.info({ room: room.code, id }, 'oyuncu geri döndü');
+    announce(room);
+    return room;
+  };
+
   return {
     rooms,
     tickAll,
     stop,
-    leave,
+    leave: (id) => leave(id),
+    disconnect(id) {
+      const room = byClient.get(id);
+      const m = room?.members.get(id);
+      if (!room || !m) return;
+      m.send = () => {};
+      m.queue = [];
+      const p = room.game.players.find((o) => o.id === id);
+      if (p) p.input = 0;
+      if (m.awayTimer) clearTimeout(m.awayTimer);
+      m.awayTimer = setTimeout(() => leave(id, true), RECONNECT_GRACE_MS);
+      log.info({ room: room.code, id }, 'oyuncu koptu, yeri tutuluyor');
+    },
+    reattach,
+    isMember: (id) => byClient.has(id),
+    isAway: (id) => !!byClient.get(id)?.members.get(id)?.awayTimer,
     create(id, name, roomName, isPublic, settings, send) {
+      if (rooms.size >= MAX_ROOMS) return 'server_full';
       leave(id);
       const code = newCode();
       const room: Room = {
@@ -334,10 +399,14 @@ export function createRooms(
       return room;
     },
     join(code, id, name, send) {
-      leave(id);
       const room = rooms.get(code);
       if (!room) return 'room_not_found';
+      // Already in this very room (a reconnect that kept its slot): just take the new socket.
+      const current = byClient.get(id);
+      if (current === room) return reattach(id, send) ?? 'room_not_found';
       if (room.members.size >= MAX_PLAYERS) return 'room_full';
+      // Only now leave the old room: a wrong code must not throw you out of the one you are in.
+      leave(id);
       if (room.members.size === 0) room.host = id;
       enter(room, id, name, send);
       return room;
@@ -348,7 +417,11 @@ export function createRooms(
       if (room?.state !== 'playing' || !m) return;
       // Arrived after a stand-in already played its tick: still the freshest intent.
       if (seq <= m.ack) m.last = bits;
-      else if (seq > (m.queue.at(-1)?.[0] ?? m.ack)) m.queue.push([seq, bits]);
+      else if (seq > (m.queue.at(-1)?.[0] ?? m.ack)) {
+        m.queue.push([seq, bits]);
+        // Bounded on arrival too, not only at the next tick: a flood cannot grow it.
+        if (m.queue.length > QUEUE_MAX * 2) m.queue.splice(0, m.queue.length - QUEUE_MAX);
+      }
     },
     switchTeam(id, team) {
       moveTo(id, id, team);
@@ -358,6 +431,7 @@ export function createRooms(
       const room = byClient.get(by);
       if (!room) return 'room_not_found';
       if (room.host !== by) return 'not_host';
+      if (room.state !== 'lobby') return 'bad_message';
       const pa = room.game.players.find((p) => p.id === a);
       const pb = room.game.players.find((p) => p.id === b);
       if (!pa || !pb) return 'bad_message';

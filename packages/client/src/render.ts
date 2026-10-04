@@ -47,6 +47,8 @@ const ROLE_STYLE: Record<Role, [string, string]> = {
 };
 
 const HUD_H = 56;
+const MAX_DPR = 2;
+const MAX_PIXELS = 3840 * 2160;
 const W = FIELD.halfW + FIELD.margin + 10;
 const H = FIELD.halfH + FIELD.margin + 10;
 
@@ -350,7 +352,9 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
 
   return {
     resize(w, h, ratio) {
-      dpr = ratio;
+      // Cap the backing store: a 4K screen at DPR 2 would otherwise mean two 33-megapixel canvases
+      // (the view and the cached pitch) and a full copy of one every frame.
+      dpr = Math.min(ratio, MAX_DPR, Math.sqrt(MAX_PIXELS / Math.max(1, w * h)));
       canvas.width = Math.round(w * dpr);
       canvas.height = Math.round(h * dpr);
       scale = Math.min(w / (W * 2), (h - HUD_H - 30) / (H * 2)) * dpr;

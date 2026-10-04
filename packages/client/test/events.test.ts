@@ -31,3 +31,36 @@ describe('olaylar', () => {
     expect(track(dead)).toContainEqual({ type: 'hit', x: 50, y: p.y, team: 'red', killed: true });
   });
 });
+
+describe('olaylar (inceleme düzeltmeleri)', () => {
+  const withBlast = (g: ReturnType<typeof createGame>, x: number) => {
+    const c = cloneGame(g);
+    c.blasts.push({ x, y: 0, kind: 'mine', t: 30 });
+    return c;
+  };
+  it('geri sarmayla kaybolup geri gelen patlama iki kez çalmaz (#10)', () => {
+    const track = createEventTracker();
+    const g = createGame(1);
+    g.tick = 100;
+    track(g);
+    const shown = withBlast(g, 50);
+    shown.tick = 101;
+    expect(track(shown).filter((e) => e.type === 'item')).toHaveLength(1);
+    const corrected = cloneGame(g);
+    corrected.tick = 102; // snapshot says: not yet
+    track(corrected);
+    const replayed = withBlast(g, 51);
+    replayed.tick = 101 + 1;
+    replayed.blasts[0]!.t = 29;
+    expect(track(replayed).filter((e) => e.type === 'item')).toHaveLength(0);
+  });
+  it('aynı tick’te iki farklı yerde açılan aynı kutu iki efekt verir (#10)', () => {
+    const track = createEventTracker();
+    const g = createGame(1);
+    g.tick = 100;
+    track(g);
+    const two = withBlast(withBlast(g, -200), 200);
+    two.tick = 101;
+    expect(track(two).filter((e) => e.type === 'item')).toHaveLength(2);
+  });
+});

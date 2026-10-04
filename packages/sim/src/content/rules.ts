@@ -32,7 +32,7 @@ export const PLAYER = {
   respawnInsetY: 6,
 };
 
-export const BALL = { radius: 10, invMass: 1, bounce: 0.5, damping: 0.99 };
+export const BALL = { radius: 10, invMass: 1, bounce: 0.5, damping: 0.99, maxSubsteps: 4 };
 
 export const MATCH = {
   maxPerTeam: 3,

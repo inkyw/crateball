@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Writable } from 'node:stream';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import WebSocket from 'ws';
 import {
   MAX_MESSAGE_BYTES,
@@ -325,6 +325,7 @@ describe('girdi kuyruğu', () => {
       { minutes: 3, scoreLimit: 5, crates: 'off', bots: false },
       (r) => sent.push(r),
     );
+    if (typeof room === 'string') throw new Error(room);
     rooms.start('a');
     const last = () =>
       JSON.parse(sent.filter((r) => r.startsWith('{"t":"snap"')).at(-1)!) as { ack: number; q: number };
@@ -340,5 +341,138 @@ describe('girdi kuyruğu', () => {
     expect(last()).toMatchObject({ ack: 4, q: 0 });
     expect(room.game.players[0]?.input).toBe(4);
     rooms.stop();
+  });
+});
+
+describe('inceleme düzeltmeleri (sunucu)', () => {
+  const settings = { minutes: 3, scoreLimit: 5, crates: 'off', bots: true } as const;
+  const make = async () => {
+    const { createRooms } = await import('../src/rooms');
+    return createRooms(createLogger(loadConfig({ NODE_ENV: 'test' }), { stdout: silent }));
+  };
+  const asRoom = <T>(r: T | string): T => {
+    if (typeof r === 'string') throw new Error(r);
+    return r;
+  };
+
+  it('yanlış kodla katılma denemesi mevcut odadan atmaz (#7)', async () => {
+    const rooms = await make();
+    const room = asRoom(rooms.create('a', 'A', 'R', false, settings, () => {}));
+    asRoom(rooms.join(room.code, 'b', 'B', () => {}));
+    expect(rooms.join('ZZZZ', 'a', 'A', () => {})).toBe('room_not_found');
+    expect(room.members.has('a')).toBe(true);
+    expect(room.host).toBe('a');
+    rooms.stop();
+  });
+
+  it('host maç sırasında takas edemez ve başkasını taşıyamaz; herkes kendi takımını değiştirebilir (#8)', async () => {
+    const rooms = await make();
+    const room = asRoom(rooms.create('a', 'A', 'R', false, settings, () => {}));
+    asRoom(rooms.join(room.code, 'b', 'B', () => {}));
+    rooms.start('a');
+    expect(rooms.swap('a', 'a', 'b')).toBe('bad_message');
+    expect(rooms.move('a', 'b', 'red')).toBe('bad_message');
+    const teamOf = (id: string) => room.game.players.find((p) => p.id === id)?.team;
+    const before = teamOf('b');
+    expect(rooms.move('b', 'b', before === 'red' ? 'blue' : 'red')).toBeNull();
+    expect(teamOf('b')).not.toBe(before);
+    rooms.stop();
+  });
+
+  it('kopan host yerini ve host’luğu korur, süre içinde dönerse devam eder (#6)', async () => {
+    vi.useFakeTimers();
+    try {
+      const { RECONNECT_GRACE_MS } = await import('../src/rooms');
+      const rooms = await make();
+      const room = asRoom(rooms.create('a', 'A', 'R', false, settings, () => {}));
+      asRoom(rooms.join(room.code, 'b', 'B', () => {}));
+      rooms.disconnect('a');
+      expect(rooms.isAway('a')).toBe(true);
+      expect(room.host).toBe('a');
+      vi.advanceTimersByTime(RECONNECT_GRACE_MS - 1000);
+      expect(rooms.reattach('a', () => {})).toBe(room);
+      expect(rooms.isAway('a')).toBe(false);
+      rooms.disconnect('a');
+      vi.advanceTimersByTime(RECONNECT_GRACE_MS + 1);
+      expect(room.members.has('a')).toBe(false);
+      expect(room.host).toBe('b');
+      rooms.stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('bilerek çıkılan boş oda hemen silinir; oda sayısı sınırlı (#1)', async () => {
+    const { MAX_ROOMS } = await import('../src/rooms');
+    const rooms = await make();
+    const room = asRoom(rooms.create('a', 'A', 'R', false, settings, () => {}));
+    rooms.leave('a');
+    expect(rooms.rooms.has(room.code)).toBe(false);
+    for (let i = 0; i < MAX_ROOMS; i++) asRoom(rooms.create(`p${i}`, 'P', 'R', false, settings, () => {}));
+    expect(rooms.create('x', 'X', 'R', false, settings, () => {})).toBe('server_full');
+    rooms.stop();
+  });
+
+  it('girdi kuyruğu gelirken de sınırlı (#2)', async () => {
+    const rooms = await make();
+    const room = asRoom(rooms.create('a', 'A', 'R', false, settings, () => {}));
+    rooms.start('a');
+    for (let s = 1; s <= 10_000; s++) rooms.input('a', s, 8);
+    expect(room.members.get('a')!.queue.length).toBeLessThanOrEqual(20);
+    rooms.stop();
+  });
+});
+
+describe('WebSocket sınırları', () => {
+  const hello = (c: ReturnType<typeof client>, sessionToken?: string) =>
+    c.socket.send(
+      encode({ t: 'hello', protocolVersion: PROTOCOL_VERSION, ...(sessionToken ? { sessionToken } : {}) }),
+    );
+
+  it('mesaj yağmuru bağlantıyı 4008 ile kapatır (#2)', async () => {
+    const { wsUrl } = await boot();
+    const c = client(wsUrl);
+    await c.opened;
+    hello(c);
+    for (let i = 0; i < 1000; i++) c.socket.send(encode({ t: 'ping', id: i }));
+    expect(await c.closed).toBe(4008);
+  });
+
+  it('aynı oturum anahtarıyla dönen host aynı kimlik ve host olarak devam eder (#6)', async () => {
+    const { wsUrl } = await boot();
+    const until = async <T extends ServerMessage['t']>(c: ReturnType<typeof client>, t: T) => {
+      for (;;) {
+        const m = await c.next();
+        if (m.t === t) return m as Extract<ServerMessage, { t: T }>;
+      }
+    };
+    const a = client(wsUrl);
+    await a.opened;
+    hello(a, 'oturum-a');
+    const first = await until(a, 'welcome');
+    a.socket.send(
+      encode({
+        t: 'create',
+        name: 'Host',
+        roomName: 'R',
+        public: false,
+        settings: { minutes: 3, scoreLimit: 5, crates: 'off', bots: true },
+      }),
+    );
+    const { code } = await until(a, 'joined');
+    a.socket.close();
+    await a.closed;
+    const b = client(wsUrl);
+    await b.opened;
+    hello(b, 'oturum-a');
+    const again = await until(b, 'welcome');
+    expect(again.clientId).toBe(first.clientId);
+    b.socket.send(encode({ t: 'join', code, name: 'Host' }));
+    expect((await until(b, 'joined')).playerId).toBe(first.clientId);
+    b.socket.send(encode({ t: 'role', role: 'mid' }));
+    const room = (await until(b, 'room')).room;
+    expect(room.host).toBe(first.clientId);
+    expect(room.players.filter((p) => !p.bot)).toHaveLength(1);
+    b.socket.close();
   });
 });

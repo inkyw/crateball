@@ -54,7 +54,14 @@ export function decodeStats(v: unknown): ClientStats | null {
   return out;
 }
 
-export type ErrorCode = 'version_mismatch' | 'bad_message' | 'room_full' | 'room_not_found' | 'not_host';
+export type ErrorCode =
+  | 'version_mismatch'
+  | 'bad_message'
+  | 'room_full'
+  | 'room_not_found'
+  | 'not_host'
+  | 'server_full'
+  | 'rate_limited';
 
 export interface RoomPlayer {
   id: string;
@@ -99,6 +106,8 @@ const ERROR_CODES: readonly string[] = [
   'room_full',
   'room_not_found',
   'not_host',
+  'server_full',
+  'rate_limited',
 ];
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
 const isUint = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0;

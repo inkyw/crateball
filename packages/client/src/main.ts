@@ -79,10 +79,30 @@ const lag = import.meta.env.DEV ? Number(params.get('lag') ?? 0) : 0;
 const jitter = import.meta.env.DEV ? Number(params.get('jitter') ?? 0) : 0;
 const { laggySocket } =
   import.meta.env.DEV && (lag > 0 || jitter > 0) ? await import('./lag') : { laggySocket: null };
+/** Per tab (sessionStorage): a reload or a dropped connection gets the same player back. */
+const sessionToken = (() => {
+  try {
+    const existing = sessionStorage.getItem('crateball-session');
+    if (existing) return existing;
+    const fresh = crypto.randomUUID();
+    sessionStorage.setItem('crateball-session', fresh);
+    return fresh;
+  } catch {
+    return undefined;
+  }
+})();
 const conn = connect({
+  sessionToken,
   url: `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`,
   createSocket: laggySocket ? (url) => laggySocket(url, lag, jitter) : undefined,
   onStatus: (s) => {
+    if (room) {
+      if (s === 'closed') {
+        banner.hidden = false;
+        banner.textContent = 'Connection lost — reconnecting…';
+      } else if (s === 'open' && banner.textContent === 'Connection lost — reconnecting…')
+        banner.hidden = true;
+    }
     if (s === 'open') {
       if (code) conn.send({ t: 'join', code, name: ui.name });
       else if (params.has('autoplay'))
@@ -246,7 +266,10 @@ function loop(now: number) {
   last = now;
   acc = Math.min(acc + dt, TICK_MS * 6);
   const tickMs = TICK_MS;
-  while (acc >= tickMs) {
+  // Offline: freeze the match instead of predicting goals and effects that never happen.
+  const live = conn.status === 'open';
+  if (!live) acc = Math.min(acc, tickMs);
+  while (live && acc >= tickMs) {
     acc -= tickMs;
     const bits = room?.state === 'playing' ? keyboard.bits() : 0;
     const seq = pred.tick(bits);

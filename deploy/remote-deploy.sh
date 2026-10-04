@@ -17,14 +17,23 @@ rm -rf "$DIR.new" && mkdir -p "$DIR.new"
 tar -x -C "$DIR.new"
 [ -f "$DIR.new/deploy/compose.yml" ] || { echo "archive has no deploy/compose.yml" >&2; exit 4; }
 
+# Build first, while the old version keeps serving: the risky window (check → restart) is then seconds.
+(cd "$DIR.new/deploy" && APP_VERSION="$VERSION" docker compose build game)
+
 if [ "$FORCE" != "force" ]; then
   waited=0
   while :; do
-    playing=$(docker compose -f "$DIR/deploy/compose.yml" exec -T game wget -qO- http://localhost:8080/health 2>/dev/null \
-      | sed -n 's/.*"playing":\([0-9]*\).*/\1/p')
-    [ "${playing:-0}" = "0" ] && break
-    [ "$waited" -ge 1800 ] && { echo "matches still running after 30 min; deploy with force" >&2; exit 5; }
-    echo "$playing match(es) running, waiting…"
+    if docker compose -f "$DIR/deploy/compose.yml" ps --status running -q game 2>/dev/null | grep -q .; then
+      # Fail closed: if the running game does not answer, assume a match may be on and wait.
+      playing=$(docker compose -f "$DIR/deploy/compose.yml" exec -T game wget -qO- http://localhost:8080/health 2>/dev/null \
+        | sed -n 's/.*"playing":\([0-9]*\).*/\1/p')
+      playing=${playing:-unknown}
+    else
+      playing=0 # nothing running yet (first deploy, or it is down anyway)
+    fi
+    [ "$playing" = "0" ] && break
+    [ "$waited" -ge 1800 ] && { echo "matches still running (or game not answering) after 30 min; deploy with force" >&2; rm -rf "$DIR.new"; exit 5; }
+    echo "match(es) running: $playing — waiting…"
     sleep 15
     waited=$((waited + 15))
   done
@@ -34,7 +43,7 @@ rm -rf "$DIR.old"
 [ -d "$DIR" ] && mv "$DIR" "$DIR.old"
 mv "$DIR.new" "$DIR"
 cd "$DIR/deploy"
-APP_VERSION="$VERSION" docker compose up -d --build --remove-orphans
+APP_VERSION="$VERSION" docker compose up -d --no-build --remove-orphans
 docker image prune -f >/dev/null
 install -m 0755 "$DIR/deploy/remote-deploy.sh" /usr/local/bin/crateball-deploy
 for i in 1 2 3 4 5 6 7 8 9 10; do

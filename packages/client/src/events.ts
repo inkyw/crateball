@@ -1,6 +1,7 @@
 import { ITEMS, type Game, type ItemKind, type Team } from '@crateball/sim';
 
 const KICK_WINDOW = 45;
+const SEEN_TTL_TICKS = 180;
 
 export type GameEvent =
   | { type: 'kick'; x: number; y: number; power: boolean }
@@ -21,7 +22,9 @@ export function createEventTracker() {
   let maxBullet = 0;
   const kickSeen = new Map<string, number>();
   const hp = new Map<string, { hp: number; x: number; y: number }>();
-  let blastsSeen = new Set<string>();
+  /** Blast key → tick first seen. Kept across frames so a blast that a rollback removes and a later
+   * replay brings back does not play twice; forgotten after a few seconds. */
+  const blastsSeen = new Map<string, number>();
 
   return (g: Game | null): GameEvent[] => {
     const out: GameEvent[] = [];
@@ -59,13 +62,24 @@ export function createEventTracker() {
         maxBullet = b.id;
       }
     }
-    const blasts = new Set<string>();
     for (const b of g.blasts) {
-      const key = `${b.kind}:${g.tick - (ITEMS.blastShow - b.t)}`;
-      blasts.add(key);
-      if (!fresh && !blastsSeen.has(key)) out.push({ type: 'item', x: b.x, y: b.y, kind: b.kind });
+      // Spawn tick plus a coarse position: two crates of the same kind opened on one tick stay apart,
+      // while the small position drift of a re-simulation maps to the same key.
+      const spawned = g.tick - (ITEMS.blastShow - b.t);
+      const key = `${b.kind}:${spawned}:${Math.round(b.x / 40)}:${Math.round(b.y / 40)}`;
+      if (!blastsSeen.has(key)) {
+        blastsSeen.set(key, g.tick);
+        if (!fresh) out.push({ type: 'item', x: b.x, y: b.y, kind: b.kind });
+      }
     }
-    blastsSeen = blasts;
+    for (const [key, seenAt] of blastsSeen)
+      if (g.tick - seenAt > SEEN_TTL_TICKS || seenAt > g.tick) blastsSeen.delete(key);
+    // Players who left: forget them (a long-lived room would otherwise grow these maps forever).
+    if (kickSeen.size > g.players.length) {
+      const ids = new Set(g.players.map((p) => p.id));
+      for (const id of kickSeen.keys()) if (!ids.has(id)) kickSeen.delete(id);
+      for (const id of hp.keys()) if (!ids.has(id)) hp.delete(id);
+    }
     return out;
   };
 }

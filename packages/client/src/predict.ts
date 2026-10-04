@@ -131,6 +131,7 @@ export function createPredictor(): Predictor {
       cur = positions(game);
       prev = cur;
       for (const [, bits] of pending) advance(bits);
+      for (const id of err.keys()) if (!cur.has(id)) err.delete(id);
       if (!before) return;
       for (const [id, now] of cur) {
         const old = before.get(id);

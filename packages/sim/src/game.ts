@@ -343,9 +343,16 @@ function integrate(g: Game): void {
     p.vx *= PLAYER.damping;
     p.vy *= PLAYER.damping;
   }
+  // The ball moves in sub-steps no longer than its radius, checking the walls after each one, so a
+  // very fast ball cannot skip over the goal line beside the goal and land inside the net.
   const b = g.ball;
-  b.x += b.vx;
-  b.y += b.vy;
+  const speed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+  const steps = Math.min(BALL.maxSubsteps, Math.max(1, Math.ceil(speed / BALL.radius)));
+  for (let i = 0; i < steps; i++) {
+    b.x += b.vx / steps;
+    b.y += b.vy / steps;
+    confineBall(b);
+  }
   b.vx *= BALL.damping;
   b.vy *= BALL.damping;
 }
@@ -356,10 +363,12 @@ function contact(a: Body, ar: number, am: number, ab: number, b: Body, br: numbe
   const dy = a.y - b.y;
   const d2 = dx * dx + dy * dy;
   const r = ar + br;
-  if (d2 >= r * r || d2 === 0) return false;
+  if (d2 >= r * r) return false;
+  // Exactly on top of each other (e.g. two players respawning on the same tick): separate along a
+  // fixed axis so they do not stay stacked forever.
   const d = Math.sqrt(d2);
-  const nx = dx / d;
-  const ny = dy / d;
+  const nx = d === 0 ? 1 : dx / d;
+  const ny = d === 0 ? 0 : dy / d;
   const m = am / (am + bm);
   const pen = r - d;
   a.x += nx * pen * m;
