@@ -20,10 +20,14 @@ export interface Vec {
 const SNAP_DISTANCE = 80;
 /** The visual offset never trails the true position by more than this. */
 const MAX_OFFSET = 40;
-/** Offset decay rates: own player ≈ 50 ms half-life (its corrections are rare and small); others and
- * the ball ≈ 90 ms, since their corrections come from guessing someone else's input and are larger. */
-const SMOOTH_RATE_ME = 14;
+/** Offset decay rates. Others and the ball: ≈ 90 ms half-life, since their corrections come from
+ * guessing someone else's input. Own player: small offsets close fast (≈ 50 ms) so control stays
+ * tight, but a bump from a collision closes slower (down to ≈ 120 ms) so it reads as a push. */
 const SMOOTH_RATE = 7.5;
+const SMOOTH_RATE_ME = 14;
+const SMOOTH_RATE_ME_MIN = 5.8;
+/** Below this own-player offset (px) the fast rate applies; above it the rate slows in proportion. */
+const ME_FAST_UNDER = 3;
 /** Never re-simulate more than this many ticks (≈ 1 s) — a hopelessly late client just snaps. */
 const MAX_PENDING = 60;
 
@@ -165,9 +169,16 @@ export function createPredictor(): Predictor {
     },
     decay(dt) {
       const k = Math.exp(-dt * SMOOTH_RATE);
-      const kMe = Math.exp(-dt * SMOOTH_RATE_ME);
       for (const [id, e] of err) {
-        const f = id === me ? kMe : k;
+        let f = k;
+        if (id === me) {
+          const len = Math.sqrt(e.x * e.x + e.y * e.y);
+          const rate =
+            len <= ME_FAST_UNDER
+              ? SMOOTH_RATE_ME
+              : Math.max(SMOOTH_RATE_ME_MIN, (SMOOTH_RATE_ME * ME_FAST_UNDER) / len);
+          f = Math.exp(-dt * rate);
+        }
         e.x *= f;
         e.y *= f;
       }

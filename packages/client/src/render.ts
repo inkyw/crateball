@@ -274,7 +274,8 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
     const secs = Math.ceil(g.clock / TICK_HZ);
     const clock =
       g.clock === 0 ? 'GOLDEN GOAL' : `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
-    text(clock, mid, HUD_H / 2, g.clock === 0 ? 15 : 22, '#FFF4E0', 800);
+    const hurry = g.clock > 0 && secs <= 30;
+    text(clock, mid, HUD_H / 2, g.clock === 0 ? 15 : 22, hurry ? '#FF6A5E' : '#FFF4E0', 800);
     text('RED', mid - 130, HUD_H / 2, 14, COLORS.red, 800);
     text('BLUE', mid + 130, HUD_H / 2, 14, COLORS.blue, 800);
     const me = g.players.find((p) => p.id === pr.me);
@@ -311,9 +312,21 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       const t: Team = g.score[0] > g.score[1] ? 'red' : 'blue';
       banner = `${t.toUpperCase()} WINS!`;
       color = COLORS[t];
+      // Say why it ended: the clock ran out (or golden goal) vs. someone reached the score limit.
+      const why = g.clock === 0 ? 'FULL TIME' : `FIRST TO ${g.settings.scoreLimit}`;
+      text(`${why}  ·  ${g.score[0]} – ${g.score[1]}`, mid, h / 2 + 56, 26, '#FFF4E0', 800);
     }
     if (banner) text(banner, mid, h / 2, 72, color, 800);
-    else if (g.phase === 'kickoff' && g.tick < 120)
+    else if (g.phase === 'play' && g.clock > 0 && secs <= 10) {
+      // Final countdown, big and fading in the middle of the pitch.
+      ctx.globalAlpha = 0.55;
+      text(String(secs), mid, h / 2, 120, '#FF6A5E', 800);
+      ctx.globalAlpha = 1;
+    } else if (
+      g.phase === 'kickoff' &&
+      g.score[0] + g.score[1] === 0 &&
+      g.clock === g.settings.minutes * 60 * TICK_HZ
+    )
       text(`First to ${g.settings.scoreLimit}`, mid, h / 2 - 60, 28, '#FFF4E0', 800);
   };
 
