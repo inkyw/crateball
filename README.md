@@ -24,6 +24,7 @@ drop at random spots: a **gun** (3 hits and you're out), a **mine** (lose a hear
 | T | Switch team |
 | 1–4 | Position: GK, DF, MF, FW |
 | M | Mute |
+| R | Report a glitch (logs the last ~10 s of netcode stats) |
 
 ## Run it
 

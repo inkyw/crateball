@@ -124,7 +124,7 @@ export function attachWebSocket(
           break;
         }
         case 'report':
-          clog.warn({ ...rooms.whereIs(clientId), note: msg.note, recent: msg.recent }, 'oyuncu raporu (F9)');
+          clog.warn({ ...rooms.whereIs(clientId), note: msg.note, recent: msg.recent }, 'oyuncu raporu (R)');
           break;
       }
     });

@@ -296,7 +296,7 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
     ctx.font = '600 12px Nunito, system-ui, sans-serif';
     ctx.fillStyle = '#FFF4E0';
     ctx.fillText(
-      'Move: WASD/Arrows · Kick: Space/X · Shoot: E/Shift · Team: T · Role: 1 GK 2 DF 3 MF 4 FW',
+      'Move: WASD/Arrows · Kick: Space/X · Shoot: E/Shift · Team: T · Role: 1 GK 2 DF 3 MF 4 FW · Report a glitch: R',
       12,
       h - 14,
     );

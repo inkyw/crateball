@@ -170,7 +170,7 @@ ui.menu(pathCode && CODE_RE.test(pathCode) ? pathCode : undefined);
 const ROLE_KEYS: Record<string, Role> = { Digit1: 'gk', Digit2: 'def', Digit3: 'mid', Digit4: 'fwd' };
 const keyboard = createKeyboard(window, (code) => {
   if (code === 'KeyM') setMuted(!sound.muted);
-  if (code === 'F9') sendReport();
+  if (code === 'KeyR' || code === 'F9') sendReport();
   if (room?.state !== 'playing') return;
   const me = pred.game?.players.find((p) => p.id === pred.me);
   if (code === 'KeyT' && me) conn.send({ t: 'move', id: me.id, team: me.team === 'red' ? 'blue' : 'red' });
@@ -200,7 +200,7 @@ const sendReport = () => {
   if (room?.state !== 'playing') return;
   conn.send({ t: 'report', note: '', recent: telemetry.recent() });
   banner.hidden = false;
-  banner.textContent = 'Report sent (F9)';
+  banner.textContent = 'Report sent';
   setTimeout(() => (banner.hidden = true), 1500);
 };
 

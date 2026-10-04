@@ -7,7 +7,7 @@ const LONG_FRAME_MS = 25;
 
 /**
  * Cheap per-frame counters, summarised every 2 s while a match runs. The server only logs the
- * summaries; F9 sends the last ~10 s as a marked report so a "that felt wrong" moment can be found.
+ * summaries; R (or F9) sends the last ~10 s as a marked report so a "that felt wrong" moment can be found.
  */
 export function createTelemetry(read: () => Omit<ClientStats, 'fps' | 'frameMsMax' | 'longFrames'>) {
   let start = performance.now();
