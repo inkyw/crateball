@@ -38,8 +38,8 @@ export interface Predictor {
   readonly corrections: number;
   /** Total distance (px) our own player was corrected by — the number that matters for feel. */
   readonly myCorrection: number;
-  /** Largest single own-player correction (px) since the last `takeMaxCorrection()`. */
-  takeMaxCorrection(): number;
+  /** Largest single correction (px) of our player, the ball and anyone else since the last call. */
+  takeMaxCorrection(): { me: number; ball: number; others: number };
   setMe(id: string): void;
   /** Back to the lobby: no game until the next snapshot. */
   reset(): void;
@@ -69,7 +69,7 @@ export function createPredictor(): Predictor {
   const err: Positions = new Map();
   let corrections = 0;
   let myCorrection = 0;
-  let maxCorrection = 0;
+  let maxCorrection = { me: 0, ball: 0, others: 0 };
 
   const advance = (bits: number) => {
     if (!game) return;
@@ -95,8 +95,8 @@ export function createPredictor(): Predictor {
       return myCorrection;
     },
     takeMaxCorrection() {
-      const m = maxCorrection;
-      maxCorrection = 0;
+      const m = { ...maxCorrection };
+      maxCorrection = { me: 0, ball: 0, others: 0 };
       return m;
     },
     reset() {
@@ -148,11 +148,10 @@ export function createPredictor(): Predictor {
             e.y *= MAX_OFFSET / len;
           }
           if (dx * dx + dy * dy > 0.25) corrections++;
-          if (id === me) {
-            const d = Math.sqrt(dx * dx + dy * dy);
-            myCorrection += d;
-            maxCorrection = Math.max(maxCorrection, d);
-          }
+          const d = Math.sqrt(dx * dx + dy * dy);
+          const who = id === me ? 'me' : id === 'ball' ? 'ball' : 'others';
+          maxCorrection[who] = Math.max(maxCorrection[who], d);
+          if (id === me) myCorrection += d;
         }
         err.set(id, e);
       }

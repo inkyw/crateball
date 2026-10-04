@@ -34,6 +34,8 @@ createInterface({ input: process.stdin }).on('line', (l) => {
     case 'istemci istatistik': {
       const bad = [];
       if (j.myCorrectionMaxPx > 8) bad.push(`tek düzeltme ${j.myCorrectionMaxPx}px`);
+      if (j.ballCorrectionMaxPx > 25) bad.push(`top zıpladı ${j.ballCorrectionMaxPx}px`);
+      if (j.othersCorrectionMaxPx > 25) bad.push(`başka oyuncu zıpladı ${j.othersCorrectionMaxPx}px`);
       if (j.myCorrectionPx > 30) bad.push(`2sn düzeltme ${j.myCorrectionPx}px`);
       if (j.fps < 50 && j.frameMsMax < 1000) bad.push(`fps ${j.fps}`);
       if ((j.longFrames >= 3 || j.frameMsMax > 60) && j.frameMsMax < 1000)

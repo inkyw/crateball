@@ -98,6 +98,8 @@ describe('telemetri', () => {
     corrections: 3,
     myCorrectionPx: 4.2,
     myCorrectionMaxPx: 1.9,
+    ballCorrectionMaxPx: 12.5,
+    othersCorrectionMaxPx: 7,
   };
   it('istatistik penceresini kabul eder, bilinmeyen alanı atar', () => {
     expect(decodeClientMessage(JSON.stringify({ t: 'stats', s: { ...ok, evil: 1 } }))).toEqual({

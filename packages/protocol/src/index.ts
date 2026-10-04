@@ -37,6 +37,8 @@ export const STAT_KEYS = [
   'corrections',
   'myCorrectionPx',
   'myCorrectionMaxPx',
+  'ballCorrectionMaxPx',
+  'othersCorrectionMaxPx',
 ] as const;
 export type ClientStats = Record<(typeof STAT_KEYS)[number], number>;
 

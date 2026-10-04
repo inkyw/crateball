@@ -193,7 +193,11 @@ const telemetry = createTelemetry(() => {
     serverQueue: queueAvg,
     corrections: c - lastCorrections,
     myCorrectionPx: px - lastMyPx,
-    myCorrectionMaxPx: pred.takeMaxCorrection(),
+    ...(({ me, ball, others }) => ({
+      myCorrectionMaxPx: me,
+      ballCorrectionMaxPx: ball,
+      othersCorrectionMaxPx: others,
+    }))(pred.takeMaxCorrection()),
   };
   lastCorrections = c;
   lastMyPx = px;
