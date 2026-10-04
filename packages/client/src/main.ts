@@ -68,16 +68,43 @@ if (import.meta.env.DEV) {
   const bridge = dev.createDebugBridge(getState);
   bridge.register('netStatus', () => NET_TEXT[conn.status]);
   window.__game = bridge;
-  const overlay = dev.createDebugOverlay(document.body);
+  const overlay = dev.createDebugOverlay(document.body, {
+    toggles: [
+      { key: 'flow', label: 'Flow field arrows' },
+      { key: 'colliders', label: 'Colliders' },
+      { key: 'grid', label: 'Grid' },
+      { key: 'lanterns', label: 'Lantern radius' },
+    ],
+  });
   if (new URLSearchParams(location.search).has('debug')) overlay.toggle(true);
+  const { registerDebugCommands } = await import('./debug');
+  const tools = registerDebugCommands(bridge, game, overlay);
   addEventListener('keydown', (e) => {
     if (e.key === 'F1') {
       e.preventDefault();
       overlay.toggle();
+      feedOverlay(); // açılır açılmaz gerçek değerler
     }
   });
+  // Panel her ~10 karede bir ve ilk karede beslenir; sayaç kendi tutulur (düşük FPS'te `frame % 10` kaçabilir / açılışta atlanabilir).
+  const OVERLAY_EVERY_FRAMES = 10;
+  let sinceFeed = OVERLAY_EVERY_FRAMES;
+  const feedOverlay = () => {
+    sinceFeed = 0;
+    overlay.update(
+      {
+        fps: game.stats.fps,
+        frameMs: game.stats.frameMs,
+        calls: game.stats.calls,
+        triangles: game.stats.triangles,
+        net: NET_TEXT[conn.status],
+      },
+      tools.extra(),
+    );
+  };
   afterFrame = () => {
-    if (game.stats.frame % 10 === 0) overlay.update({ ...game.stats, net: NET_TEXT[conn.status] });
+    tools.update();
+    if (++sinceFeed >= OVERLAY_EVERY_FRAMES) feedOverlay();
   };
   console.info(`[before-nightfall] dev tools ready: window.__game, F1 debug panel (seed ${seed})`);
 }

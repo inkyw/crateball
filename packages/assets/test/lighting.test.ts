@@ -14,11 +14,20 @@ describe('lighting keys', () => {
     expect(sampleKeys(0).night).toBe(1);
     expect(sampleKeys(0.76).night).toBeGreaterThan(0.4);
   });
-  it('todFromPhase gündüzü 0.25–0.75, geceyi 0.75→0.25 arasına eşler', () => {
-    expect(todFromPhase('day', 0)).toBeCloseTo(0.25);
+  it('todFromPhase gündüzü 0.32–0.75, geceyi 0.75→0.32 arasına eşler', () => {
+    expect(todFromPhase('day', 0)).toBeCloseTo(0.32);
     expect(todFromPhase('day', 1)).toBeCloseTo(0.75);
     expect(todFromPhase('night', 0)).toBeCloseTo(0.75);
-    expect(todFromPhase('night', 0.5)).toBeCloseTo(0);
-    expect(todFromPhase('night', 1)).toBeCloseTo(0.25);
+    expect(todFromPhase('night', 1)).toBeCloseTo(0.32);
+  });
+  it("gün başında gece oranı düşük: günün %5'inde night < 0.15, ilk tickte <= 0.1", () => {
+    expect(sampleKeys(todFromPhase('day', 0)).night).toBeLessThanOrEqual(0.1);
+    expect(sampleKeys(todFromPhase('day', 0.05)).night).toBeLessThan(0.15);
+  });
+  it('alacakaranlık/şafak faz sınırlarında görünür kalır, gece ortası karanlık', () => {
+    expect(sampleKeys(todFromPhase('day', 1)).night).toBeGreaterThan(0.3);
+    expect(sampleKeys(todFromPhase('night', 0.2)).night).toBeGreaterThan(0.9);
+    expect(sampleKeys(todFromPhase('night', 0.9)).night).toBeGreaterThan(0.05);
+    expect(sampleKeys(todFromPhase('night', 0.9)).night).toBeLessThan(0.9);
   });
 });

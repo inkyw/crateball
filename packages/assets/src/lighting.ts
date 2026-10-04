@@ -63,10 +63,14 @@ export function sampleKeys(t: number, out?: KeySample): KeySample {
   return o;
 }
 
-/** Sim fazı + ilerleme (0..1) → gün saati. Gündüz 0.25→0.75 (gün doğumu→batımı), gece 0.75→1.25≡0.25. */
+/** Gündüz fazı gün saatinin bu aralığına eşlenir: tam gün ışığında başlar (n ≈ 0.05), batım yaklaşırken biter. */
+const DAY_TOD_START = 0.32;
+const DAY_TOD_END = 0.75;
+/** Sim fazı + ilerleme (0..1) → gün saati. Gündüz 0.32→0.75; gece 0.75→1.32≡0.32 (şafak ve alacakaranlık gece fazının uçlarında görünür). */
 export function todFromPhase(phase: 'day' | 'night', progress: number): number {
   const p = Math.min(1, Math.max(0, progress));
-  return phase === 'day' ? 0.25 + 0.5 * p : (0.75 + 0.5 * p) % 1;
+  if (phase === 'day') return DAY_TOD_START + (DAY_TOD_END - DAY_TOD_START) * p;
+  return (DAY_TOD_END + (1 + DAY_TOD_START - DAY_TOD_END) * p) % 1;
 }
 
 export interface LightingOptions {
