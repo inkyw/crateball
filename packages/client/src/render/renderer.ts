@@ -175,6 +175,7 @@ export function createGameRenderer(canvas: HTMLCanvasElement): GameRenderer {
     dispose() {
       clearWorld();
       glowPool.dispose();
+      lighting.sun.dispose(); // gölge render hedefi
       glowTex.dispose();
       post.dispose();
       renderer.dispose();

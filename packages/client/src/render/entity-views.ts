@@ -84,6 +84,32 @@ export function createEntityViews(scene: Scene, hf: HeightField, glowPool: GlowP
 
   return {
     update(state, prev, alpha, tS, night) {
+      // Önce say, sonra kapasiteyi ayır: büyütme eski girdileri kopyalamaz, yazmadan önce yapılmalı.
+      const need = new Map<InstancedModel, number>();
+      const want = (im: InstancedModel) => need.set(im, (need.get(im) ?? 0) + 1);
+      let glowNeed = 1; // Hearth halesi
+      for (const id of ids(state.nodes)) {
+        const k = state.nodes[id]!.kind;
+        want(k === 'tree' ? (id % 2 === 0 ? pine : oak) : k === 'rock' ? rock : bush);
+      }
+      for (const id of ids(state.creatures)) {
+        const k = state.creatures[id]!.kind;
+        want(creatures[k]);
+        if (k === 'glowbug') glowNeed++;
+      }
+      for (const id of ids(state.buildings)) {
+        const b = state.buildings[id]!;
+        if (b.kind === 'hearth') continue;
+        if (b.kind === 'fence') want(fences[fenceMask(state, b.i, b.j)]!);
+        else if (b.kind === 'arrowTower') want(tower);
+        else {
+          want(lantern);
+          glowNeed++;
+        }
+      }
+      for (let n = ids(state.projectiles).length; n > 0; n--) want(arrow);
+      for (const [im, n] of need) im.ensureCapacity(n);
+      glowPool.ensureCapacity(glowNeed);
       let glow = 0;
       const counts = new Map<InstancedModel, number>();
       // Kapasite sim sözleşmesinde yok: gerekirse buffer büyür (sessiz sınır yok).
