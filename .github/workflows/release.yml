@@ -1,10 +1,8 @@
-# Publishing a GitHub release (or running this by hand) runs the full check and, if it passes,
-# deploys that exact commit to the VPS behind playcrateball.com.
+# Run by hand (Actions → Release → Run workflow): runs the full check and, if it passes, deploys
+# that exact commit to the VPS behind playcrateball.com. Nothing deploys automatically.
 name: Release
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       force:
@@ -53,8 +51,7 @@ jobs:
           DEPLOY_KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS }}
       - name: Ship and rebuild on the server
         run: |
-          VERSION="${{ github.event.release.tag_name || github.sha }}"
-          VERSION="${VERSION:0:40}"
+          VERSION="${GITHUB_SHA:0:7}"
           FORCE=""
           [ "${{ inputs.force }}" = "true" ] && FORCE=force
           git archive --format=tar HEAD | ssh -p SSH_PORT -i ~/.ssh/deploy -o BatchMode=yes -o StrictHostKeyChecking=yes \
