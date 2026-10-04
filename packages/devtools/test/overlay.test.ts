@@ -30,3 +30,28 @@ describe('createDebugOverlay', () => {
     expect(o.el.querySelector('[data-key=fps]')?.textContent).toBe('–');
   });
 });
+
+describe('overlay anahtarları ve ek satırlar', () => {
+  it('toggles onay kutusu üretir, onToggle çağrılır, toggleState okunur', () => {
+    const calls: [string, boolean][] = [];
+    const o = createDebugOverlay(document.body, {
+      toggles: [{ key: 'flow', label: 'Flow field' }],
+      onToggle: (k, on) => calls.push([k, on]),
+    });
+    const box = o.el.querySelector<HTMLInputElement>('input[data-toggle="flow"]');
+    expect(box).not.toBeNull();
+    expect(o.toggleState('flow')).toBe(false);
+    box?.click();
+    expect(calls).toEqual([['flow', true]]);
+    expect(o.toggleState('flow')).toBe(true);
+  });
+  it('update extra satırları ekler ve günceller', () => {
+    const o = createDebugOverlay(document.body);
+    o.toggle(true);
+    o.update(stats, { tick: 42, phase: 'night' });
+    expect(o.el.querySelector('[data-key="tick"]')?.textContent).toBe('42');
+    expect(o.el.querySelector('[data-key="phase"]')?.textContent).toBe('night');
+    o.update(stats, { tick: 43 });
+    expect(o.el.querySelector('[data-key="tick"]')?.textContent).toBe('43');
+  });
+});
