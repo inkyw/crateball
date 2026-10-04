@@ -78,7 +78,14 @@ describe('HTTP', () => {
     const { base } = await boot();
     const res = await fetch(`${base}/health`);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true, version: 'test', mode: 'development' });
+    expect(await res.json()).toEqual({
+      ok: true,
+      version: 'test',
+      mode: 'development',
+      rooms: 0,
+      playing: 0,
+      players: 0,
+    });
   });
   it('/__log Türkçe kaydı log dosyasına yazar', async () => {
     const { base, cfg } = await boot();
@@ -292,6 +299,7 @@ describe('WebSocket', () => {
 
     host.socket.send(encode({ t: 'start' }));
     while ((await until(host, 'room')).room.state !== 'playing');
+    expect(await (await fetch(`${base}/health`)).json()).toMatchObject({ rooms: 1, playing: 1, players: 2 });
     for (let s = 1; s <= 5; s++) host.socket.send(encode({ t: 'in', s, b: 8 }));
     let snap = await until(host, 'snap');
     while (snap.ack < 5) snap = await until(host, 'snap');

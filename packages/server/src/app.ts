@@ -25,7 +25,12 @@ export async function startServer(
     if (cfg.mode === 'development') devLog = (await import('./dev-log')).createDevLogRoute(log);
   }
   const rooms = createRooms(log);
-  const handler = createHttpHandler(cfg, devLog, () => rooms.list());
+  const handler = createHttpHandler(
+    cfg,
+    devLog,
+    () => rooms.list(),
+    () => rooms.stats(),
+  );
   const server = createServer((req, res) => {
     handler(req, res).catch((err: unknown) => {
       log.error({ err }, 'http hatası');

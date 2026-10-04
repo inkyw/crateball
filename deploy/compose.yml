@@ -1,0 +1,30 @@
+# Production on the VPS: the game behind Caddy (automatic HTTPS). Deployed by scripts/deploy.sh.
+name: crateball
+services:
+  game:
+    build: ..
+    image: crateball:latest
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: '8080'
+      APP_VERSION: ${APP_VERSION:-unknown}
+    expose: ['8080']
+    # Logs stay on the server and rotate: at most 5 × 20 MB.
+    logging:
+      driver: json-file
+      options: { max-size: 20m, max-file: '5' }
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ['80:80', '443:443', '443:443/udp']
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: '3' }
+volumes:
+  caddy_data:
+  caddy_config:

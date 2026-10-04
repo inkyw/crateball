@@ -1,0 +1,9 @@
+# Caddy gets and renews the HTTPS certificate on its own once DNS points here.
+playcrateball.com {
+	encode zstd gzip
+	reverse_proxy game:8080
+}
+
+www.playcrateball.com {
+	redir https://playcrateball.com{uri} permanent
+}

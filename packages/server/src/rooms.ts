@@ -76,6 +76,8 @@ export interface Rooms {
   setSettings(id: string, settings: Settings): ErrorCode | null;
   start(id: string): ErrorCode | null;
   list(): RoomListing[];
+  /** For /health: lets a deploy wait until no match is running. */
+  stats(): { rooms: number; playing: number; players: number };
   /** Room code and player name for log lines. */
   whereIs(id: string): { room?: string; name?: string };
   tickAll(): void;
@@ -393,6 +395,14 @@ export function createRooms(
       announce(room);
       broadcastSnap(room);
       return null;
+    },
+    stats() {
+      const all = [...rooms.values()];
+      return {
+        rooms: all.length,
+        playing: all.filter((r) => r.state === 'playing' && r.members.size > 0).length,
+        players: all.reduce((n, r) => n + r.members.size, 0),
+      };
     },
     whereIs(id) {
       const room = byClient.get(id);

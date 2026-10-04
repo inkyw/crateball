@@ -14,6 +14,7 @@ export function createHttpHandler(
   cfg: ServerConfig,
   devLog: Route | null,
   listRooms: () => unknown = () => [],
+  roomStats: () => Record<string, number> = () => ({}),
 ) {
   const assets = cfg.staticDir ? sirv(cfg.staticDir, { single: true, etag: true }) : null;
   return async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
@@ -24,7 +25,7 @@ export function createHttpHandler(
         res.end();
         return;
       }
-      json(res, 200, { ok: true, version: cfg.version, mode: cfg.mode });
+      json(res, 200, { ok: true, version: cfg.version, mode: cfg.mode, ...roomStats() });
       return;
     }
     if (pathname === '/rooms' && req.method === 'GET') return json(res, 200, listRooms());
