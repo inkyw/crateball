@@ -136,4 +136,31 @@ describe('createInput', () => {
     key('KeyW');
     expect(input.readInput(1).move).toEqual({ x: 0, z: 0 });
   });
+  it('sürükleme sırasında blur: hareket/saldırı ve çit sürüklemesi iptal; pointerup yerleştirme üretmez', () => {
+    const { el, input } = setup();
+    key('Digit1'); // çit
+    mouse(el, 'pointerdown', 0, 100, 100);
+    window.dispatchEvent(new Event('blur'));
+    expect(input.build.dragStart).toBeNull();
+    window.dispatchEvent(new MouseEvent('pointerup', { button: 0, clientX: 140, clientY: 103 }));
+    expect(input.readInput(1).place).toBeNull();
+    input.dispose();
+  });
+  it('pointercancel çit sürüklemesini iptal eder; başka hareketle başlamamış bırakma yerleştirmez', () => {
+    const { el, input } = setup();
+    key('Digit1');
+    mouse(el, 'pointerdown', 0, 100, 100);
+    window.dispatchEvent(new Event('pointercancel'));
+    expect(input.build.dragStart).toBeNull();
+    window.dispatchEvent(new MouseEvent('pointerup', { button: 0, clientX: 140, clientY: 103 }));
+    expect(input.readInput(1).place).toBeNull();
+    input.dispose();
+  });
+  it('blur bekleyen tık kenarını (balta) siler', () => {
+    const { el, input } = setup();
+    mouse(el, 'pointerdown', 0);
+    window.dispatchEvent(new Event('blur'));
+    expect(input.readInput(1).attack).toBe(false);
+    input.dispose();
+  });
 });

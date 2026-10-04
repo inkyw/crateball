@@ -100,7 +100,7 @@ export function createLocalSession(seed: number): Session {
     const input: PlayerInput = {
       ...raw,
       attack: raw.attack || latchedAttack,
-      place: latchedPlace ?? raw.place,
+      place: latchedPlace,
     };
     latchedAttack = false;
     latchedPlace = null;

@@ -6,9 +6,10 @@ import {
   CREATURES,
   SEPARATION,
 } from '../content/creatures';
+import { GRID_SIZE } from '../content/island';
 import { PLAYER } from '../content/player';
 import { DT, secondsToTicks } from '../content/time';
-import { cellCenter, cellCoords, cellIndexAt } from '../grid';
+import { cellCenter, cellCoords, cellIndexAt, cellOf, cidx } from '../grid';
 import { moveCircle } from '../movement';
 import { circleOverlapsCell } from '../placement';
 import { buildingCenter, ids } from '../state';
@@ -143,6 +144,36 @@ function resolveUnitContacts(state: GameState): void {
   }
 }
 
+/** Hedefe doğru (ux,uz) erişim menzilindeki en uygun bina: yönle en iyi hizalanan komşu hücre. */
+function blockingBuilding(
+  state: GameState,
+  c: Creature,
+  radius: number,
+  ux: number,
+  uz: number,
+): Building | null {
+  const [ci, cj] = cellOf(c.x, c.z);
+  let best: Building | null = null;
+  let bestDot = 0.3;
+  for (let dj = -1; dj <= 1; dj++)
+    for (let di = -1; di <= 1; di++) {
+      const i = ci + di;
+      const j = cj + dj;
+      if (i < 0 || j < 0 || i >= GRID_SIZE || j >= GRID_SIZE) continue;
+      const occId = state.occ[cidx(i, j)] ?? 0;
+      const b = occId ? state.buildings[occId] : undefined;
+      if (!b || !circleOverlapsCell(c.x, c.z, radius + ATTACK_REACH, i, j)) continue;
+      const [x, z] = cellCenter(i, j);
+      const len = Math.hypot(x - c.x, z - c.z) || 1;
+      const dot = ((x - c.x) * ux + (z - c.z) * uz) / len;
+      if (dot > bestDot) {
+        bestDot = dot;
+        best = b;
+      }
+    }
+  return best;
+}
+
 export function updateCreatures(state: GameState, events: SimEvent[]): void {
   const list = ids(state.creatures);
   const push = separation(state, list);
@@ -210,7 +241,15 @@ export function updateCreatures(state: GameState, events: SimEvent[]): void {
           handled = true;
         } else if (tryMove((dx / d) * speed * DT, (dz / d) * speed * DT) >= CHASE_BLOCKED_FRACTION)
           handled = true;
-        // Engellendi (çit, yar, ağaç): flow alanına düş; önündeki bina varsa ona saldırır.
+        else {
+          // Engellendi: hedefe doğru erişimdeki bina varsa ona saldır (flow rotası uzaklaşıp salınım yapmasın).
+          const obstruction = blockingBuilding(state, c, def.radius, dx / d, dz / d);
+          if (obstruction) {
+            attackBuilding(state, c, obstruction, events);
+            handled = true;
+          }
+          // Yoksa (yar, ağaç): flow alanına düş.
+        }
       }
     }
     if (!handled) followFlow();

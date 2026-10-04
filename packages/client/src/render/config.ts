@@ -52,3 +52,19 @@ export const DEBUG_VIEW = {
   /** Başlangıç kapasitesi (float); gerekirse ikinin katı olarak büyür. */
   minCapacity: 1024,
 } as const;
+
+/** İnşa önizlemesi (build-ghost): kare/hayalet renkleri, opaklıklar, boyutlar, çizim sırası. */
+export const BUILD_GHOST = {
+  maxCells: 64,
+  renderOrder: 6,
+  okColor: 0x6ce07a,
+  badColor: 0xff5a4a,
+  ghostOkColor: 0xb8f5c0,
+  ghostBadColor: 0xffb0a8,
+  okOpacity: 0.42,
+  badOpacity: 0.48,
+  ghostOpacity: 0.55,
+  /** Kare kenarı (hücre 1.0; kenarlarda boşluk bırakır) ve zeminden yükseklik ofseti. */
+  quadSize: 0.92,
+  quadLift: 0.05,
+} as const;

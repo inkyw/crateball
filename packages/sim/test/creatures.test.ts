@@ -5,6 +5,7 @@ import { PLAYER } from '../src/content/player';
 import { cellIndexAt, cellOf } from '../src/grid';
 import { addBuilding, createGame, ids, spawnCreature } from '../src/state';
 import { step } from '../src/step';
+import { applyPlacement } from '../src/systems/build';
 import { removeBuilding } from '../src/systems/combat';
 import { inLanternLight, updateCreatures } from '../src/systems/creatures';
 import { spawnCells } from '../src/systems/waves';
@@ -79,8 +80,10 @@ describe('Shadeling', () => {
   });
   it('CANLI oyuncu kapalı çitin arkasındayken kovalayan Shadeling takılı kalmaz: çite saldırır', () => {
     const s = createGame(1);
-    const p = s.players[ids(s.players)[0]!]!; // (0, 3.5) — halkanın içinde, canlı
+    const p = s.players[ids(s.players)[0]!]!;
     p.god = true;
+    p.x = 0;
+    p.z = 0.5; // halkanın içinde (hücre (32,32)), çit satırlarından uzakta
     fenceRing(s);
     const c = spawnCreature(s, 'shadeling', 0.5, 6.5); // oyuncuya 3 birim → kovalar, çit engeller
     run(s, 60);
@@ -91,6 +94,31 @@ describe('Shadeling', () => {
     expect(damaged).toBeDefined();
     expect(c.targetId).toBe(damaged!.id);
     expect(p.hp).toBe(PLAYER.maxHp);
+  });
+  it('8 çitle çevrili oyuncunun etrafında salınmaz: bir çite saldırır (tam step hattı)', () => {
+    const s = createGame(1);
+    const pid = ids(s.players)[0]!;
+    const p = s.players[pid]!;
+    p.god = true;
+    p.x = 4.5;
+    p.z = 3.5;
+    s.resources = { wood: 1000, stone: 1000 };
+    const ev: SimEvent[] = [];
+    const cells: [number, number][] = [];
+    for (let i = 35; i <= 37; i++)
+      for (let j = 34; j <= 36; j++) if (i !== 36 || j !== 35) cells.push([i, j]);
+    for (const [i, j] of cells) applyPlacement(s, pid, { kind: 'fence', i, j, rot: 0, cells: [[i, j]] }, ev);
+    expect(ev.filter((e) => e.t === 'built')).toHaveLength(8);
+    const c = spawnCreature(s, 'shadeling', 1.5, 3.5);
+    const events = run(s, 600);
+    // Çit ya hasar aldı ya da yıkıldı; yaratık çevresinde salınıp kalmadı.
+    const hit = events.some((e) => e.t === 'buildingDestroyed' && e.kind === 'fence');
+    const damaged = ids(s.buildings).some((id) => {
+      const b = s.buildings[id]!;
+      return b.kind === 'fence' && b.hp < BUILDINGS.fence.hp;
+    });
+    expect(hit || damaged).toBe(true);
+    expect(c.targetId).not.toBe(0);
   });
   it('oyuncu ve yaratık daireleri iç içe geçmez (temas çözümü arazi kurallarına uyar)', () => {
     const s = createGame(1);

@@ -12,6 +12,7 @@ import {
   type Scene,
   Vector3,
 } from 'three';
+import { BUILD_GHOST } from './config';
 
 export interface BuildPreview {
   kind: BuildableKind;
@@ -24,33 +25,37 @@ export interface BuildGhost {
   dispose(): void;
 }
 
-const MAX_CELLS = 64;
-const OK = 0x6ce07a;
-const BAD = 0xff5a4a;
-const GHOST_OK = 0xb8f5c0;
-const GHOST_BAD = 0xffb0a8;
-
 /** Kit inşa modu: ayak izi kareleri yeşil/kırmızı, yarı saydam hayalet model. */
 export function createBuildGhost(scene: Scene, hf: HeightField): BuildGhost {
   const root = new Group();
-  root.renderOrder = 6;
-  const quadGeo = new PlaneGeometry(0.92, 0.92).rotateX(-Math.PI / 2);
+  root.renderOrder = BUILD_GHOST.renderOrder;
+  const quadGeo = new PlaneGeometry(BUILD_GHOST.quadSize, BUILD_GHOST.quadSize).rotateX(-Math.PI / 2);
   const okQuads = new InstancedMesh(
     quadGeo,
-    new MeshBasicMaterial({ color: OK, transparent: true, opacity: 0.42, depthWrite: false }),
-    MAX_CELLS,
+    new MeshBasicMaterial({
+      color: BUILD_GHOST.okColor,
+      transparent: true,
+      opacity: BUILD_GHOST.okOpacity,
+      depthWrite: false,
+    }),
+    BUILD_GHOST.maxCells,
   );
   const badQuads = new InstancedMesh(
     quadGeo,
-    new MeshBasicMaterial({ color: BAD, transparent: true, opacity: 0.48, depthWrite: false }),
-    MAX_CELLS,
+    new MeshBasicMaterial({
+      color: BUILD_GHOST.badColor,
+      transparent: true,
+      opacity: BUILD_GHOST.badOpacity,
+      depthWrite: false,
+    }),
+    BUILD_GHOST.maxCells,
   );
   okQuads.count = badQuads.count = 0;
   const ghostMat = new MeshBasicMaterial({
     color: 0xffffff,
     vertexColors: true,
     transparent: true,
-    opacity: 0.55,
+    opacity: BUILD_GHOST.ghostOpacity,
     depthWrite: false,
   });
   const ghostMesh = (b: Baked) => new Mesh(b.opaque ?? undefined, ghostMat);
@@ -58,7 +63,7 @@ export function createBuildGhost(scene: Scene, hf: HeightField): BuildGhost {
     arrowTower: ghostMesh(makeTower()),
     lantern: ghostMesh(makeLantern()),
   };
-  const fenceGhost = new InstancedMesh(makeFenceCell(0).opaque ?? undefined, ghostMat, MAX_CELLS);
+  const fenceGhost = new InstancedMesh(makeFenceCell(0).opaque ?? undefined, ghostMat, BUILD_GHOST.maxCells);
   fenceGhost.count = 0;
   for (const o of [okQuads, badQuads, fenceGhost, ...Object.values(models)]) {
     o.frustumCulled = false;
@@ -87,7 +92,7 @@ export function createBuildGhost(scene: Scene, hf: HeightField): BuildGhost {
         const [x, z] = cellCenter(c.i, c.j);
         cx += x / valid.length;
         cz += z / valid.length;
-        m.compose(p.set(x, hf.heightAt(x, z) + 0.05, z), q.identity(), s);
+        m.compose(p.set(x, hf.heightAt(x, z) + BUILD_GHOST.quadLift, z), q.identity(), s);
         if (c.issue) badQuads.setMatrixAt(bad++, m);
         else okQuads.setMatrixAt(ok++, m);
       }
@@ -95,7 +100,7 @@ export function createBuildGhost(scene: Scene, hf: HeightField): BuildGhost {
       badQuads.count = bad;
       okQuads.instanceMatrix.needsUpdate = badQuads.instanceMatrix.needsUpdate = true;
       okQuads.visible = badQuads.visible = true;
-      ghostMat.color.copy(tint.set(preview.allOk ? GHOST_OK : GHOST_BAD));
+      ghostMat.color.copy(tint.set(preview.allOk ? BUILD_GHOST.ghostOkColor : BUILD_GHOST.ghostBadColor));
       if (valid.length === 0) return;
       if (preview.kind === 'fence') {
         const first = valid[0]!;

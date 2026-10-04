@@ -23,9 +23,16 @@ describe('gün/gece', () => {
     expect(ev.filter((e) => e.t === 'phaseChanged')).toEqual([
       { t: 'phaseChanged', phase: 'night', day: 1, night: 1 },
     ]);
-    spawnCreature(s, 'shadeling', 10, 10);
-    s.projectiles[999] = { id: 999, x: 5, z: 5, targetId: 0, damage: 10 };
-    const ev2 = run(s, 1500);
+    const ev2 = run(s, 1500 - 4);
+    // Şafaktan hemen önce: canlı bir hedefe uçan ok (hedeften uzak, bu adımlarda varmaz).
+    const target = spawnCreature(s, 'shadeling', 10, 10);
+    s.projectiles[999] = { id: 999, x: -10, z: -10, targetId: target.id, damage: 10 };
+    expect(s.phase).toBe('night');
+    ev2.push(...run(s, 1));
+    expect(s.phase).toBe('night');
+    expect(s.projectiles[999]).toBeDefined();
+    expect(s.creatures[target.id]).toBeDefined();
+    ev2.push(...run(s, 3));
     expect(s.phase).toBe('day');
     expect(s.day).toBe(2);
     expect(s.night).toBe(1);

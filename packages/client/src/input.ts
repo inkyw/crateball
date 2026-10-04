@@ -75,9 +75,15 @@ export function createInput(
     else if (e.code === 'Escape' && build.kind) setKind(null);
   };
   const onKeyUp = (e: KeyboardEvent) => keys.delete(e.code);
+  /** Pencere odağı/işaretçi kaybı: etkin hareketi, tutulan saldırıyı, bekleyen tık kenarını ve çit sürüklemesini iptal eder. */
+  const cancelGesture = () => {
+    attackHeld = false;
+    attackClicked = false;
+    build.dragStart = null;
+  };
   const onBlur = () => {
     keys.clear();
-    attackHeld = false;
+    cancelGesture();
   };
   const updateHover = (e: MouseEvent) => {
     pointer = { x: e.clientX, y: e.clientY };
@@ -120,6 +126,7 @@ export function createInput(
       build.dragStart = null;
     }
   };
+  const onPointerCancel = () => cancelGesture();
   const onContextMenu = (e: Event) => e.preventDefault();
 
   window.addEventListener('keydown', onKeyDown);
@@ -128,6 +135,7 @@ export function createInput(
   target.addEventListener('pointermove', onPointerMove);
   target.addEventListener('pointerdown', onPointerDown);
   window.addEventListener('pointerup', onPointerUp);
+  window.addEventListener('pointercancel', onPointerCancel);
   target.addEventListener('contextmenu', onContextMenu);
 
   return {
@@ -162,6 +170,7 @@ export function createInput(
       target.removeEventListener('pointermove', onPointerMove);
       target.removeEventListener('pointerdown', onPointerDown);
       window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerCancel);
       target.removeEventListener('contextmenu', onContextMenu);
       keys.clear();
     },

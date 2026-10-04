@@ -47,7 +47,6 @@ M0 incelemelerinde "Minor" olarak işaretlenip ertelenen maddeler. M1 planı yaz
 ### M2 öncesi zorunlu
 - Sim (build komutu): güvenilmeyen komut sayıları doğrulanmıyor (tam sayı olmayan/sonlu olmayan `i`/`j`, `slice` öncesi çok uzun çit hattı, `rot` zorlanmıyor) → M2 `NetSession`'dan önce doğrula.
 - Sunucu: WebSocket `Origin` kontrolü (yukarıda M0 notu; M2).
-- İstemci (debug): `timeScale` NaN/negatif değer `acc`'yi bozar; debug komutu doğrulamalı/sınırlamalı (Task 15 notu; Task 18'de ele alındıysa kapat).
 
 ### sim
 - `secondsToTicks` yuvarlama testinde kesirli girdi yok.

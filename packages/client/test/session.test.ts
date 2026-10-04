@@ -52,6 +52,23 @@ describe('createLocalSession', () => {
     expect(ev2.some((e) => e.t === 'built')).toBe(false);
     expect(s.state.resources.wood).toBe(15);
   });
+  it('yerleştirme tek seferlik: catch-up adımlarında tekrarlanmaz (built ×1, buildRejected yok)', () => {
+    const s = createLocalSession(1);
+    const pid = s.localPlayerId;
+    s.state.resources.wood = 20;
+    s.update(0);
+    s.setInput({ ...idleInput(pid), place: { kind: 'fence', i: 33, j: 37, rot: 0 } });
+    const ev = s.update(150); // 3 adım, setInput yok
+    expect(s.state.tick).toBe(3);
+    expect(ev.filter((e) => e.t === 'built')).toHaveLength(1);
+    expect(ev.filter((e) => e.t === 'buildRejected')).toHaveLength(0);
+    const s2 = createLocalSession(1);
+    s2.state.resources.wood = 20;
+    s2.setInput({ ...idleInput(s2.localPlayerId), place: { kind: 'fence', i: 33, j: 37, rot: 0 } });
+    const ev2 = s2.stepOnce(3);
+    expect(ev2.filter((e) => e.t === 'built')).toHaveLength(1);
+    expect(ev2.filter((e) => e.t === 'buildRejected')).toHaveLength(0);
+  });
   it('kısa tık: iki adım arasında bas–bırak tek adımda vuruşa dönüşür, sonra tekrarlamaz', () => {
     const s = createLocalSession(1);
     const pid = s.localPlayerId;
