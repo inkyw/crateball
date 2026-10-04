@@ -4,13 +4,13 @@ import { expect, test } from '@playwright/test';
 type GameState = {
   frame: number;
   net: { status: string; clientId: string | null };
-  sim: { tick: number; phase: string; seed: number };
+  sim: { tick: number; phase: string; players: Array<{ name: string; bot: boolean }> } | null;
 };
 const LOG_FILE = 'logs/dev.log';
 
-test('sahne açılır ve sunucuya bağlanır', async ({ page }) => {
-  await page.goto('/');
-  await expect(page).toHaveTitle('Before Nightfall');
+test('sahne açılır, odaya girer ve botla maç başlar', async ({ page }) => {
+  await page.goto('/?name=Şule&autoplay');
+  await expect(page).toHaveTitle('Crateball');
   await expect(page.locator('canvas#game')).toBeVisible();
   await page.waitForFunction(
     () => (window.__game?.getState() as GameState | undefined)?.net.status === 'open',
@@ -21,8 +21,14 @@ test('sahne açılır ve sunucuya bağlanır', async ({ page }) => {
   );
   const state = await page.evaluate(() => window.__game?.getState() as GameState);
   expect(state.frame).toBeGreaterThan(0);
-  await page.waitForFunction(() => ((window.__game?.getState() as GameState | undefined)?.sim.tick ?? 0) > 5);
-  expect((await page.evaluate(() => window.__game?.getState() as GameState)).sim.phase).toBe('day');
+  await page.waitForFunction(
+    () => ((window.__game?.getState() as GameState | undefined)?.sim?.tick ?? 0) > 5,
+  );
+  const sim = (await page.evaluate(() => window.__game?.getState() as GameState)).sim;
+  expect(sim?.players).toEqual([
+    expect.objectContaining({ name: 'Şule', bot: false }),
+    expect.objectContaining({ bot: true }),
+  ]);
   expect(state.net.clientId).toHaveLength(8);
 });
 

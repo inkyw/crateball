@@ -4,7 +4,14 @@ import { defineConfig } from 'eslint/config';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
-const WORKSPACE = ['@gg/sim', '@gg/protocol', '@gg/client', '@gg/server', '@gg/devtools', '@gg/assets'];
+const WORKSPACE = [
+  '@crateball/sim',
+  '@crateball/protocol',
+  '@crateball/client',
+  '@crateball/server',
+  '@crateball/devtools',
+  '@crateball/assets',
+];
 const NODE_BUILTINS = builtinModules.flatMap((m) => [m, `${m}/*`]);
 // Gitignore tarzı desenler './net' gibi göreli yolları 'net' sanır; göreli yolları hariç tut.
 const RELATIVE_OK = ['!./*', '!../*', '!./**', '!../**'];
@@ -100,8 +107,8 @@ export default defineConfig(
         {
           paths: [
             {
-              name: '@gg/sim',
-              message: "protocol @gg/sim'den sadece tip alabilir (import type).",
+              name: '@crateball/sim',
+              message: "protocol @crateball/sim'den sadece tip alabilir (import type).",
               allowTypeImports: true,
             },
           ],
@@ -114,9 +121,9 @@ export default defineConfig(
                 'node:*',
                 ...NODE_BUILTINS,
                 ...RELATIVE_OK,
-                ...WORKSPACE.filter((p) => p !== '@gg/sim'),
+                ...WORKSPACE.filter((p) => p !== '@crateball/sim'),
               ],
-              message: 'protocol sadece @gg/sim tiplerine bağlı olabilir.',
+              message: 'protocol sadece @crateball/sim tiplerine bağlı olabilir.',
             },
           ],
         },
@@ -127,7 +134,7 @@ export default defineConfig(
     files: ['packages/client/src/**/*.ts'],
     rules: {
       'no-restricted-imports': restrict(
-        ['@gg/server', 'ws', 'node:*', ...NODE_BUILTINS, ...RELATIVE_OK],
+        ['@crateball/server', 'ws', 'node:*', ...NODE_BUILTINS, ...RELATIVE_OK],
         'client sunucu koduna ve Node modüllerine bağlanamaz.',
       ),
     },
@@ -136,7 +143,7 @@ export default defineConfig(
     files: ['packages/server/src/**/*.ts'],
     rules: {
       'no-restricted-imports': restrict(
-        ['@gg/client', '@gg/assets', 'three', 'three/*'],
+        ['@crateball/client', '@crateball/assets', 'three', 'three/*'],
         'server render koduna bağlanamaz.',
       ),
     },
@@ -145,7 +152,14 @@ export default defineConfig(
     files: ['packages/devtools/src/**/*.ts'],
     rules: {
       'no-restricted-imports': restrict(
-        ['@gg/server', '@gg/client', '@gg/assets', 'node:*', ...NODE_BUILTINS, ...RELATIVE_OK],
+        [
+          '@crateball/server',
+          '@crateball/client',
+          '@crateball/assets',
+          'node:*',
+          ...NODE_BUILTINS,
+          ...RELATIVE_OK,
+        ],
         'devtools client/server içine takılır, onlara ve Node modüllerine bağımlı olmaz.',
       ),
     },

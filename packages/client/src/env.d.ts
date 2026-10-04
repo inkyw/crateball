@@ -1,5 +1,5 @@
 /// <reference types="vite/client" />
-import type { DebugBridge } from '@gg/devtools';
+import type { DebugBridge } from '@crateball/devtools';
 
 declare global {
   interface Window {

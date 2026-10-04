@@ -50,3 +50,39 @@ describe('sunucu mesajları', () => {
     expect(decodeServerMessage('{"t":"error","code":"boom","message":"x"}')).toBeNull();
   });
 });
+
+describe('oyun mesajları', () => {
+  it('join adı temizler, kodu doğrular', () => {
+    expect(decodeClientMessage('{"t":"join","code":"ABCD","name":"  Şükrü\\u0007 "}')).toEqual({
+      t: 'join',
+      code: 'ABCD',
+      name: 'Şükrü',
+    });
+    expect(decodeClientMessage('{"t":"join","code":"ABIO","name":"x"}')).toBeNull();
+  });
+  it('ayarları seçeneklerle sınırlar', () => {
+    const ok = { minutes: 3, scoreLimit: 5, crates: 'chaos', bots: false };
+    const raw = (settings: unknown) =>
+      JSON.stringify({ t: 'create', name: 'A', roomName: '', public: true, settings });
+    expect(decodeClientMessage(raw(ok))).toEqual({
+      t: 'create',
+      name: 'A',
+      roomName: "A's room",
+      public: true,
+      settings: ok,
+    });
+    expect(decodeClientMessage(raw({ ...ok, minutes: 999 }))).toBeNull();
+  });
+  it('girdi baytı 0..63 aralığında', () => {
+    expect(decodeClientMessage('{"t":"in","s":5,"b":17}')).toEqual({ t: 'in', s: 5, b: 17 });
+    expect(decodeClientMessage('{"t":"in","s":5,"b":64}')).toBeNull();
+  });
+  it('snap sarmalayıcısı çözülür', async () => {
+    const { createGame } = await import('@crateball/sim');
+    const { encodeGame, encodeSnap } = await import('../src/index');
+    const g = createGame(1);
+    g.ball.x = 1 / 3;
+    const m = decodeServerMessage(encodeSnap(4, 9, encodeGame(g)));
+    expect(m?.t === 'snap' && m.ack === 9 && m.g.ball.x).toBe(0.333);
+  });
+});

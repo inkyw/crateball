@@ -10,7 +10,7 @@ import {
   decodeServerMessage,
   encode,
   type ServerMessage,
-} from '@gg/protocol';
+} from '@crateball/protocol';
 import { createLogger, loadConfig, startServer, type RunningServer, type ServerConfig } from '../src/app';
 
 const silent = new Writable({ write: (_c, _e, cb) => cb() });
@@ -164,10 +164,10 @@ describe('HTTP', () => {
   });
   it('prod modunda statik dosya servis eder, /__log yoktur', async () => {
     const staticDir = mkdtempSync(join(tmpdir(), 'gg-static-'));
-    writeFileSync(join(staticDir, 'index.html'), '<title>Before Nightfall</title>');
+    writeFileSync(join(staticDir, 'index.html'), '<title>Crateball</title>');
     const { base } = await boot({ mode: 'production', logFile: null, staticDir });
-    expect(await (await fetch(`${base}/`)).text()).toContain('<title>Before Nightfall</title>');
-    expect(await (await fetch(`${base}/r/KXQT`)).text()).toContain('<title>Before Nightfall</title>');
+    expect(await (await fetch(`${base}/`)).text()).toContain('<title>Crateball</title>');
+    expect(await (await fetch(`${base}/r/KXQT`)).text()).toContain('<title>Crateball</title>');
     expect((await fetch(`${base}/__log`, { method: 'POST', body: '[]' })).status).toBe(404);
   });
 });
@@ -247,5 +247,58 @@ describe('WebSocket', () => {
   it('log dosyası yoksa oluşturulur', async () => {
     const { cfg } = await boot();
     expect(existsSync(cfg.logFile as string)).toBe(true);
+  });
+  it('oda kur → kod, lobide bot; ikinci oyuncu kodla katılır; host başlatır, snap girdiyi onaylar', async () => {
+    const { wsUrl, base } = await boot();
+    const host = client(wsUrl);
+    const guest = client(wsUrl);
+    await Promise.all([host.opened, guest.opened]);
+    for (const c of [host, guest]) {
+      c.socket.send(encode({ t: 'hello', protocolVersion: PROTOCOL_VERSION }));
+      await c.next();
+    }
+    const settings = { minutes: 2, scoreLimit: 3, crates: 'chaos', bots: true } as const;
+    host.socket.send(encode({ t: 'create', name: 'Ayşe', roomName: 'Pazar maçı', public: true, settings }));
+    const until = async <T extends ServerMessage['t']>(c: ReturnType<typeof client>, t: T) => {
+      for (;;) {
+        const m = await c.next();
+        if (m.t === t) return m as Extract<ServerMessage, { t: T }>;
+      }
+    };
+    const room = (await until(host, 'room')).room;
+    const { code } = await until(host, 'joined');
+    expect(code).toMatch(/^[A-HJ-NP-Z]{4}$/);
+    expect(room.players.map((p) => [p.name, p.team, p.bot])).toEqual([
+      ['Ayşe', 'red', false],
+      ['Bot 1', 'blue', true],
+    ]);
+    expect(await (await fetch(`${base}/rooms`)).json()).toEqual([
+      { code, name: 'Pazar maçı', humans: 1, max: 6, state: 'lobby' },
+    ]);
+
+    guest.socket.send(encode({ t: 'join', code, name: 'Can' }));
+    const after = (await until(guest, 'room')).room;
+    expect(after.players.filter((p) => !p.bot).map((p) => [p.name, p.team])).toEqual([
+      ['Ayşe', 'red'],
+      ['Can', 'blue'],
+    ]);
+    const guestId = (await until(guest, 'joined')).playerId;
+    const hostId = after.host;
+    guest.socket.send(encode({ t: 'start' }));
+    expect(await until(guest, 'error')).toMatchObject({ code: 'not_host' });
+    host.socket.send(encode({ t: 'swap', a: hostId, b: guestId }));
+    const swapped = (await until(guest, 'room')).room;
+    expect(swapped.players.find((p) => p.id === guestId)?.team).toBe('red');
+
+    host.socket.send(encode({ t: 'start' }));
+    while ((await until(host, 'room')).room.state !== 'playing');
+    for (let s = 1; s <= 5; s++) host.socket.send(encode({ t: 'in', s, b: 8 }));
+    let snap = await until(host, 'snap');
+    while (snap.ack < 5) snap = await until(host, 'snap');
+    expect(snap.g.settings).toEqual(settings);
+    guest.socket.send(encode({ t: 'join', code: 'ZZZZ', name: 'x' }));
+    expect(await until(guest, 'error')).toMatchObject({ code: 'room_not_found' });
+    host.socket.close();
+    guest.socket.close();
   });
 });

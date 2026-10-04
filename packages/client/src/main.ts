@@ -1,29 +1,94 @@
 import './style.css';
-import { PROTOCOL_VERSION } from '@gg/protocol';
-import { startGame } from './game';
+import { CODE_RE, PROTOCOL_VERSION, type RoomInfo } from '@crateball/protocol';
+import { DEFAULT_SETTINGS, TICK_HZ, type Role } from '@crateball/sim';
+import { createEventTracker } from './events';
+import { createKeyboard } from './input';
 import { connect, type NetStatus } from './net';
+import { createParticles } from './particles';
+import { createPredictor } from './predict';
+import { createRenderer } from './render';
+import { createSound } from './sound';
+import { createUi } from './ui';
 
-const canvas = document.querySelector<HTMLCanvasElement>('#game');
-const banner = document.querySelector<HTMLDivElement>('#banner');
-if (!canvas || !banner) throw new Error('index.html eksik: #game veya #banner yok');
+const $ = <T extends HTMLElement>(sel: string) => {
+  const el = document.querySelector<T>(sel);
+  if (!el) throw new Error(`index.html eksik: ${sel}`);
+  return el;
+};
+const canvas = $<HTMLCanvasElement>('#game');
+const banner = $<HTMLDivElement>('#banner');
 
-const seedParam = new URLSearchParams(location.search).get('seed');
-const seed = seedParam !== null && seedParam !== '' ? Number(seedParam) >>> 0 : Date.now() % 1_000_000;
-const game = startGame({ canvas, hudParent: document.body, seed });
-const resize = () => game.renderer.resize(innerWidth, innerHeight, devicePixelRatio);
+const params = new URLSearchParams(location.search);
+const pathCode = /^\/r\/([A-Za-z]{4})\/?$/.exec(location.pathname)?.[1]?.toUpperCase();
+// Query flags (debug, autoplay, name) survive the /r/CODE rewrite so a reload behaves the same.
+const debugQuery = location.search;
+let autoStarted = false;
+
+const renderer = createRenderer(canvas);
+const resize = () => renderer.resize(innerWidth, innerHeight, devicePixelRatio);
 addEventListener('resize', resize);
 resize();
 
-const NET_TEXT: Record<NetStatus, string> = {
-  connecting: 'connecting…',
-  open: 'connected',
-  closed: 'offline — retrying',
-  version_mismatch: 'version mismatch',
+const pred = createPredictor();
+const fx = createParticles();
+const sound = createSound();
+const track = createEventTracker();
+let mutedPref = false;
+try {
+  mutedPref = localStorage.getItem('muted') === '1';
+} catch {
+  /* private mode */
+}
+sound.setMuted(mutedPref);
+const setMuted = (m: boolean) => {
+  sound.setMuted(m);
+  try {
+    localStorage.setItem('muted', m ? '1' : '0');
+  } catch {
+    /* private mode */
+  }
 };
-// M1: sunucu oyun çalıştırmaz; bağlantı yalnızca dev log + sürüm kontrolü için (M2'de NetSession).
+addEventListener('pointerdown', () => sound.unlock());
+addEventListener('keydown', () => sound.unlock());
+
+let room: RoomInfo | null = null;
+let code: string | null = null;
+let rtt = 0;
+
+const showError = (text: string) => {
+  banner.hidden = false;
+  banner.textContent = text;
+  setTimeout(() => (banner.hidden = true), 3500);
+};
+
+const toMenu = () => {
+  room = null;
+  code = null;
+  pred.reset();
+  history.replaceState(null, '', `/${params.has('debug') ? '?debug' : ''}`);
+  ui.menu();
+};
+
+const lag = import.meta.env.DEV ? Number(params.get('lag') ?? 0) : 0;
+const jitter = import.meta.env.DEV ? Number(params.get('jitter') ?? 0) : 0;
+const { laggySocket } =
+  import.meta.env.DEV && (lag > 0 || jitter > 0) ? await import('./lag') : { laggySocket: null };
 const conn = connect({
   url: `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`,
+  createSocket: laggySocket ? (url) => laggySocket(url, lag, jitter) : undefined,
   onStatus: (s) => {
+    if (s === 'open') {
+      if (code) conn.send({ t: 'join', code, name: ui.name });
+      else if (params.has('autoplay'))
+        conn.send({
+          t: 'create',
+          name: ui.name,
+          roomName: 'Test',
+          public: false,
+          settings: DEFAULT_SETTINGS,
+        });
+      else if (pathCode && ui.name !== 'Player') conn.send({ t: 'join', code: pathCode, name: ui.name });
+    }
     if (s !== 'version_mismatch') return;
     banner.hidden = false;
     banner.textContent = 'The game was updated.';
@@ -33,78 +98,198 @@ const conn = connect({
     btn.onclick = () => location.reload();
     banner.append(btn);
   },
+  onMessage: (m) => {
+    switch (m.t) {
+      case 'joined':
+        code = m.code;
+        pred.setMe(m.playerId);
+        history.replaceState(null, '', `/r/${m.code}${debugQuery}`);
+        if (room) onRoom(room);
+        break;
+      case 'room':
+        onRoom(m.room);
+        break;
+      case 'snap':
+        if (room?.state === 'playing') pred.snapshot(m.ack, m.g);
+        break;
+      case 'pong':
+        rtt = performance.now() - m.id;
+        break;
+      case 'error':
+        showError(m.message);
+        if (m.code === 'room_not_found') toMenu();
+        break;
+    }
+  },
 });
+setInterval(() => conn.send({ t: 'ping', id: Math.floor(performance.now()) }), 2000);
 
-function getState() {
-  const s = game.stats;
-  return {
-    frame: s.frame,
-    net: { status: conn.status, clientId: conn.clientId, protocolVersion: PROTOCOL_VERSION },
-    render: {
-      fps: s.fps,
-      frameMs: s.frameMs,
-      calls: s.calls,
-      triangles: s.triangles,
-      night: game.renderer.night,
-      effects: game.renderer.effects,
-      memory: game.renderer.memory,
-    },
-    sim: game.summary(),
-  };
+function onRoom(r: RoomInfo) {
+  const wasPlaying = room?.state === 'playing';
+  room = r;
+  // Dev/test shortcut: ?autoplay creates a room and the host starts it right away.
+  if (params.has('autoplay') && !autoStarted && r.host === pred.me && r.state === 'lobby') {
+    autoStarted = true;
+    conn.send({ t: 'start' });
+  }
+  if (r.state === 'playing') ui.hide();
+  else {
+    if (wasPlaying) pred.reset();
+    ui.lobby(r, pred.me);
+  }
 }
 
-let afterFrame: (() => void) | null = null;
+const ui = createUi(
+  $<HTMLDivElement>('#ui'),
+  {
+    create: (roomName, isPublic, settings) =>
+      conn.send({ t: 'create', name: ui.name, roomName, public: isPublic, settings }),
+    join: (c) => conn.send({ t: 'join', code: c, name: ui.name }),
+    leave: () => {
+      conn.send({ t: 'leave' });
+      toMenu();
+    },
+    team: (team) => pred.me && conn.send({ t: 'move', id: pred.me, team }),
+    move: (id, team) => conn.send({ t: 'move', id, team }),
+    swap: (a, b) => conn.send({ t: 'swap', a, b }),
+    role: (role) => conn.send({ t: 'role', role }),
+    settings: (settings) => conn.send({ t: 'settings', settings }),
+    start: () => conn.send({ t: 'start' }),
+    mute: setMuted,
+  },
+  { name: params.get('name') ?? undefined, muted: mutedPref },
+);
+ui.menu(pathCode && CODE_RE.test(pathCode) ? pathCode : undefined);
+
+const ROLE_KEYS: Record<string, Role> = { Digit1: 'gk', Digit2: 'def', Digit3: 'mid', Digit4: 'fwd' };
+const keyboard = createKeyboard(window, (code) => {
+  if (code === 'KeyM') setMuted(!sound.muted);
+  if (room?.state !== 'playing') return;
+  const me = pred.game?.players.find((p) => p.id === pred.me);
+  if (code === 'KeyT' && me) conn.send({ t: 'move', id: me.id, team: me.team === 'red' ? 'blue' : 'red' });
+  const role = ROLE_KEYS[code];
+  if (role) conn.send({ t: 'role', role });
+});
+document.addEventListener('visibilitychange', () => keyboard.release());
+
+const TICK_MS = 1000 / TICK_HZ;
+let acc = 0;
+let last = performance.now();
+const stats = { frame: 0, fps: 0, frameMs: 0 };
+let fpsT = last;
+let fpsN = 0;
+
 function loop(now: number) {
-  game.frame(now);
+  const dt = now - last;
+  last = now;
+  acc = Math.min(acc + dt, TICK_MS * 6);
+  while (acc >= TICK_MS) {
+    acc -= TICK_MS;
+    const bits = room?.state === 'playing' ? keyboard.bits() : 0;
+    const seq = pred.tick(bits);
+    if (seq !== null) conn.send({ t: 'in', s: seq, b: bits });
+  }
+  const t0 = performance.now();
+  for (const e of track(pred.game)) {
+    sound.play(e);
+    fx.emit(e);
+  }
+  if (pred.game) fx.ambient(pred.game, (id) => pred.pos(id, acc / TICK_MS), dt / 1000);
+  fx.update(Math.min(dt, 50) / 1000);
+  pred.decay(dt / 1000);
+  renderer.draw(pred, acc / TICK_MS, fx);
+  stats.frameMs = performance.now() - t0;
+  stats.frame++;
+  fpsN++;
+  if (now - fpsT >= 500) {
+    stats.fps = (fpsN * 1000) / (now - fpsT);
+    fpsT = now;
+    fpsN = 0;
+  }
   afterFrame?.();
   requestAnimationFrame(loop);
 }
+let afterFrame: (() => void) | null = null;
 requestAnimationFrame(loop);
+
+const NET_TEXT: Record<NetStatus, string> = {
+  connecting: 'connecting…',
+  open: 'connected',
+  closed: 'offline — retrying',
+  version_mismatch: 'version mismatch',
+};
+
+function getState() {
+  const g = pred.game;
+  const me = g?.players.find((p) => p.id === pred.me);
+  return {
+    frame: stats.frame,
+    screen: ui.screen,
+    room,
+    net: {
+      status: conn.status,
+      clientId: conn.clientId,
+      protocolVersion: PROTOCOL_VERSION,
+      rtt: Math.round(rtt),
+    },
+    render: { fps: stats.fps, frameMs: stats.frameMs, particles: fx.count },
+    pred: { pending: pred.pending, corrections: pred.corrections },
+    sim: g && {
+      tick: g.tick,
+      phase: g.phase,
+      score: g.score,
+      clock: g.clock,
+      players: g.players.map((p) => ({ id: p.id, name: p.name, team: p.team, bot: p.bot, role: p.role })),
+      me: me && { x: me.x, y: me.y, team: me.team, hp: me.hp, gun: me.gun, role: me.role },
+      ball: g.ball,
+      crates: g.crates.length,
+    },
+  };
+}
 
 // Dev araçları: prod build'de bu dal tamamen silinir (import.meta.env.DEV === false).
 if (import.meta.env.DEV) {
-  const dev = await import('@gg/devtools');
+  const dev = await import('@crateball/devtools');
   dev.installLogBridge({ endpoint: '/__log', clientId: `c-${Math.random().toString(36).slice(2, 8)}` });
   const bridge = dev.createDebugBridge(getState);
   bridge.register('netStatus', () => NET_TEXT[conn.status]);
-  window.__game = bridge;
-  const overlay = dev.createDebugOverlay(document.body, {
-    toggles: [
-      { key: 'flow', label: 'Flow field arrows' },
-      { key: 'colliders', label: 'Colliders' },
-      { key: 'grid', label: 'Grid' },
-      { key: 'lanterns', label: 'Lantern radius' },
-    ],
+  bridge.register('fx', (kind: unknown) => {
+    const g = pred.game;
+    const me = g?.players.find((p) => p.id === pred.me);
+    if (me && typeof kind === 'string')
+      fx.emit(
+        kind === 'goal'
+          ? { type: 'goal', team: me.team, x: 420, y: 0 }
+          : { type: 'item', x: me.x, y: me.y, kind: kind as 'mine' },
+      );
+    return fx.count;
   });
-  if (new URLSearchParams(location.search).has('debug')) overlay.toggle(true);
-  const { registerDebugCommands } = await import('./debug');
-  const tools = registerDebugCommands(bridge, game, overlay);
+  window.__game = bridge;
+  const overlay = dev.createDebugOverlay(document.body);
+  if (params.has('debug')) overlay.toggle(true);
   addEventListener('keydown', (e) => {
     if (e.key === 'F1') {
       e.preventDefault();
       overlay.toggle();
-      feedOverlay(); // açılır açılmaz gerçek değerler
     }
   });
-  // Panel her ~10 karede bir ve ilk karede beslenir; sayaç kendi tutulur (düşük FPS'te `frame % 10` kaçabilir / açılışta atlanabilir).
-  const OVERLAY_EVERY_FRAMES = 10;
-  let sinceFeed = OVERLAY_EVERY_FRAMES;
-  const feedOverlay = () => {
-    sinceFeed = 0;
+  afterFrame = () => {
+    if (!overlay.visible || stats.frame % 10 !== 0) return;
     overlay.update(
       {
-        fps: game.stats.fps,
-        frameMs: game.stats.frameMs,
-        calls: game.stats.calls,
-        triangles: game.stats.triangles,
-        net: NET_TEXT[conn.status],
+        fps: stats.fps,
+        frameMs: stats.frameMs,
+        calls: 0,
+        triangles: 0,
+        net: `${NET_TEXT[conn.status]} ${Math.round(rtt)}ms`,
       },
-      tools.extra(),
+      {
+        tick: pred.game?.tick ?? 0,
+        pending: pred.pending,
+        corrections: pred.corrections,
+        particles: fx.count,
+      },
     );
   };
-  afterFrame = () => {
-    tools.update();
-    if (++sinceFeed >= OVERLAY_EVERY_FRAMES) feedOverlay();
-  };
-  console.info(`[before-nightfall] dev tools ready: window.__game, F1 debug panel (seed ${seed})`);
+  console.info('[crateball] dev tools ready: window.__game, F1 debug panel');
 }

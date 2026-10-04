@@ -3,6 +3,7 @@ import type { AddressInfo } from 'node:net';
 import type { Logger } from 'pino';
 import type { ServerConfig } from './config';
 import { createHttpHandler, type Route } from './http';
+import { createRooms } from './rooms';
 import { attachWebSocket } from './ws';
 
 export { loadConfig, type ServerConfig } from './config';
@@ -23,7 +24,8 @@ export async function startServer(
   if (process.env.NODE_ENV !== 'production') {
     if (cfg.mode === 'development') devLog = (await import('./dev-log')).createDevLogRoute(log);
   }
-  const handler = createHttpHandler(cfg, devLog);
+  const rooms = createRooms(log);
+  const handler = createHttpHandler(cfg, devLog, () => rooms.list());
   const server = createServer((req, res) => {
     handler(req, res).catch((err: unknown) => {
       log.error({ err }, 'http hatası');
@@ -31,7 +33,7 @@ export async function startServer(
       res.end();
     });
   });
-  const wss = attachWebSocket(server, log, opts);
+  const wss = attachWebSocket(server, log, rooms, opts);
   try {
     await new Promise<void>((resolve, reject) => {
       // ws, http sunucusunun 'error' olayını yeniden yayar; ikisini de dinle ki yakalanmamış hata olmasın.
@@ -54,6 +56,7 @@ export async function startServer(
     port,
     close: () =>
       new Promise<void>((resolve) => {
+        rooms.stop();
         for (const c of wss.clients) c.terminate();
         wss.close();
         server.close(() => resolve());

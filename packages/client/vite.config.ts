@@ -7,6 +7,7 @@ export default defineConfig({
     proxy: {
       '/ws': { target: 'ws://localhost:3000', ws: true },
       '/health': 'http://localhost:3000',
+      '/rooms': 'http://localhost:3000',
       '/__log': 'http://localhost:3000',
     },
   },

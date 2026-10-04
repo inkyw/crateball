@@ -1,4 +1,10 @@
-import { PROTOCOL_VERSION, decodeServerMessage, encode } from '@gg/protocol';
+import {
+  PROTOCOL_VERSION,
+  decodeServerMessage,
+  encode,
+  type ClientMessage,
+  type ServerMessage,
+} from '@crateball/protocol';
 
 export type NetStatus = 'connecting' | 'open' | 'closed' | 'version_mismatch';
 
@@ -15,12 +21,15 @@ export interface ConnectionOptions {
   createSocket?: (url: string) => SocketLike;
   schedule?: (fn: () => void, ms: number) => unknown;
   onStatus?: (status: NetStatus) => void;
+  /** Every decoded message after the welcome handshake. */
+  onMessage?: (m: ServerMessage) => void;
 }
 
 export interface Connection {
   readonly status: NetStatus;
   readonly clientId: string | null;
   readonly attempts: number;
+  send(m: ClientMessage): void;
   close(): void;
 }
 
@@ -34,6 +43,7 @@ export function connect(o: ConnectionOptions): Connection {
   let attempts = 0;
   let stopped = false;
   let socket: SocketLike | null = null;
+  const queued: ClientMessage[] = [];
 
   const setStatus = (s: NetStatus) => {
     status = s;
@@ -53,10 +63,11 @@ export function connect(o: ConnectionOptions): Connection {
         clientId = m.clientId;
         attempts = 0;
         setStatus('open');
+        for (const q of queued.splice(0)) s.send(encode(q));
       } else if (m.t === 'error' && m.code === 'version_mismatch') {
         stopped = true;
         setStatus('version_mismatch');
-      }
+      } else o.onMessage?.(m);
     };
     s.onclose = () => {
       socket = null;
@@ -80,6 +91,11 @@ export function connect(o: ConnectionOptions): Connection {
     },
     get attempts() {
       return attempts;
+    },
+    send(m) {
+      if (socket && status === 'open') socket.send(encode(m));
+      // A click before the handshake finishes (slow link) must not vanish; per-tick traffic is dropped.
+      else if (m.t !== 'in' && m.t !== 'ping') queued.push(m);
     },
     close() {
       stopped = true;

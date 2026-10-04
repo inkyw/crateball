@@ -11,14 +11,14 @@ export default defineConfig({
   // Sunucu ve istemci ayrı sağlık kontrolleriyle: biri hazır değilken testler başlamaz.
   webServer: [
     {
-      command: 'pnpm --filter @gg/server dev',
+      command: 'pnpm --filter @crateball/server dev',
       url: 'http://localhost:3000/health',
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
       stdout: 'ignore',
     },
     {
-      command: 'pnpm --filter @gg/client dev',
+      command: 'pnpm --filter @crateball/client dev',
       url: 'http://localhost:5173',
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,

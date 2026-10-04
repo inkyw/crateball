@@ -1,5 +1,5 @@
 {
-  "name": "@gg/server",
+  "name": "@crateball/server",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -13,10 +13,11 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@gg/protocol": "workspace:*",
+    "@crateball/protocol": "workspace:*",
     "pino": "^10.4.0",
     "sirv": "^3.0.2",
-    "ws": "^8.22.0"
+    "ws": "^8.22.0",
+    "@crateball/sim": "workspace:*"
   },
   "devDependencies": {
     "@types/ws": "^8.18.2",

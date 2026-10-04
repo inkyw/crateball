@@ -1,0 +1,79 @@
+import { BALL, FIELD, PLAYER } from './content/rules';
+import { DOWN, KICK, LEFT, RIGHT, UP, USE, type Game, type Player } from './types';
+
+const d2 = (ax: number, ay: number, bx: number, by: number) => (ax - bx) ** 2 + (ay - by) ** 2;
+
+/** Simple deterministic bot: chaser goes behind the ball toward the enemy goal, others hold. */
+export function botInput(g: Game, p: Player): number {
+  if (p.dead > 0 || p.frozen > 0 || g.phase === 'over') return 0;
+  const own = p.team === 'red' ? -1 : 1;
+  const b = g.ball;
+  let bits = 0;
+
+  if (p.gun > 0 && p.cooldown === 0) {
+    for (const e of g.players) {
+      if (e.team === p.team || e.dead > 0) continue;
+      const dx = e.x - p.x;
+      const dy = e.y - p.y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d < 260 && (dx * p.fx + dy * p.fy) / d > 0.93) bits |= USE;
+    }
+  }
+
+  const mates = g.players.filter((o) => o.team === p.team && o.dead === 0 && o.role !== 'gk');
+  const chaser = mates.reduce<Player | null>(
+    (best, o) => (!best || d2(o.x, o.y, b.x, b.y) < d2(best.x, best.y, b.x, b.y) ? o : best),
+    null,
+  );
+  // Keeper only comes out when the ball is in or near its box.
+  const ballNearOwnGoal = b.x * own > FIELD.halfW - 150 && Math.abs(b.y) < 160;
+  const attacking = p.role === 'gk' ? ballNearOwnGoal : chaser === p;
+  let tx: number;
+  let ty: number;
+  let wantKick = false;
+  const crate = g.crates.find((c) => d2(c.x, c.y, p.x, p.y) < 110 ** 2);
+  if (g.phase === 'kickoff' && g.kickoffTeam !== p.team) {
+    tx = own * 120;
+    ty = p.role === 'gk' ? 0 : b.y;
+    if (p.role === 'gk') tx = own * (FIELD.halfW - 25);
+  } else if (!attacking) {
+    const home: Record<string, number> = {
+      gk: FIELD.halfW - 25,
+      def: 230,
+      mid: Math.min(140, b.x * own),
+      fwd: -150,
+    };
+    tx = own * (home[p.role] ?? 0);
+    ty = p.role === 'gk' ? Math.max(-FIELD.goalHalf, Math.min(FIELD.goalHalf, b.y * 0.7)) : b.y * 0.5;
+    if (crate && p.role !== 'gk') {
+      tx = crate.x;
+      ty = crate.y;
+    }
+  } else {
+    const gx = -own * (FIELD.halfW + 20) - b.x;
+    const gy = -b.y;
+    const gl = Math.sqrt(gx * gx + gy * gy) || 1;
+    const nx = gx / gl;
+    const ny = gy / gl;
+    const reach = p.r + BALL.radius;
+    const ahead = (p.x - b.x) * nx + (p.y - b.y) * ny;
+    if (ahead > -reach * 0.5) {
+      // On the wrong side: loop around the ball.
+      const sideSign = (p.x - b.x) * -ny + (p.y - b.y) * nx >= 0 ? 1 : -1;
+      tx = b.x - nx * 36 - ny * 34 * sideSign;
+      ty = b.y - ny * 36 + nx * 34 * sideSign;
+    } else {
+      tx = b.x - nx * (reach - 6);
+      ty = b.y - ny * (reach - 6);
+      wantKick = d2(p.x, p.y, b.x, b.y) < (reach + PLAYER.kickReach) ** 2;
+    }
+  }
+  const dx = tx - p.x;
+  const dy = ty - p.y;
+  if (dx > 4) bits |= RIGHT;
+  else if (dx < -4) bits |= LEFT;
+  if (dy > 4) bits |= DOWN;
+  else if (dy < -4) bits |= UP;
+  if (wantKick && p.kickArmed) bits |= KICK;
+  return bits;
+}

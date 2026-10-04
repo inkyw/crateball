@@ -1,0 +1,60 @@
+# Crateball — tasarım
+
+Haxball tarzı, tarayıcıda linkle açılan 1–3 v 1–3 arcade futbol. Rastgele yerlerde kutular düşer;
+oyuncu kutuya değince açılır.
+
+## Kurallar (sabitler: `packages/sim/src/content/rules.ts`)
+
+- Saha 840×400 px, 60 tick/sn. Haxball fiziği: daire çarpışmaları, sönümleme, vuruş tuşu basılıyken
+  yavaşlama, tuşa her basışta bir vuruş.
+- Maç 3 dk, 5 gole kadar; süre bittiğinde berabere ise altın gol.
+- Can 3; ölünce 3 sn sonra kendi kalesi önünde doğar.
+- Kutu içerikleri (ağırlıklı): **Gun** (6 mermi, 3 isabet öldürür, topa da çarpar), **Mine** (patlar:
+  açana 1 hasar + 4 sn yavaşlama, çevredekileri ve topu iter), **Ice** (2.5 sn donma), **Speed**,
+  **Shield** (bir hasarı emer), **Power kick** (sonraki vuruş 2.2×).
+- Mevkiler (herkes topa koşmasın diye; bonus yalnızca kendi bölgesinde):
+  GK kendi ceza sahasında büyük (r 22), DF kendi yarısında ağır + hızlı, MF orta bölgede uzun
+  menzil + sert pas + geniş pas yardımı, FW hücum bölgesinde en hızlı + en sert şut. 1–4 tuşlarıyla değişir (takım
+  arkadaşıyla takas).
+- Pas: vuruş yönü bir takım arkadaşına ±6° (orta saha kendi bölgesinde ±15°) yakınsa top ona doğru
+  bükülür ve koşusunun önüne atılır; kale ağzına giden şut bükülmez. Vuruş tuşu basılı değilken
+  topa değmek "hafif dokunuş"tur (top az seker, kontrol kolay). Kendi oyuncunun topa yakınken
+  vuruş yönünü gösteren ok çizilir; pas yardımı devredeyse sarı olur ve alıcıyı halkayla gösterir.
+- Botlar takımları eşitler (tek kişi gelirse 1v1 bot); mevkilerini korurlar.
+
+## Menü ve lobi
+
+- Ana menü: takma ad → **Create Room** (ad, herkese açık/özel, ayarlar) / **Find Room** (`GET /rooms`,
+  arama) / **Join with Code** (4 harf, I/O yok). `/r/KOD` linki takma ad kayıtlıysa direkt katılır.
+- Lobi: iki takım sütunu, herkes kendi mevkisini seçer (GK/DF/MF/FW), "Join Red/Blue". Host
+  sürükle-bırak ile oyuncuyu başka oyuncunun üstüne bırakırsa ikisi takım+mevki takası yapar,
+  takım sütununa bırakırsa taşır. Ayarlar (süre 2/3/5/10 dk, gol limiti 3/5/7/10, kutular
+  kapalı/normal/kaos, botlarla doldur) yalnızca host'ta düzenlenir; **Start Game** yalnızca host.
+- Maç bitince 6 sn sonra oda lobiye döner. Host çıkarsa host'luk sıradakine geçer; boş oda 2 dk yaşar.
+
+## Ses ve efektler
+
+- Ses: WebAudio ile kodla üretilir (dosya yok): vuruş, düdük, gol, ateş, isabet, kutu içeriğine göre
+  efekt. M ile sessiz.
+- Parçacıklar (yalnızca istemci, sabit havuz ≤ 900): vuruş kıvılcımı, top izi, koşu tozu, namlu
+  alevi, isabet kırıkları, mayın patlaması + duman + ekran sarsıntısı, buz kırıkları, gol konfetisi,
+  kutu kıymıkları, hız/power/donma/yavaşlama izleri.
+- Olaylar (`events.ts`) tahmin edilen durum karelerinin farkından çıkar; geri sarma aynı tick'leri
+  tekrar oynattığı için tick damgası / artan id ile tekrar çalmaz.
+
+## Ağ modeli (Godot sürümündeki "client'ta top geç/kötü geliyor" sorununun çözümü)
+
+- Sunucu otoriter, 60 Hz sim, 30 Hz snapshot (tam durum, JSON, sayılar 1/1000'e yuvarlanır).
+- İstemci her tick kendi girdisini sıraya koyar, gönderir **ve tüm dünyayı (top dahil) hemen
+  kendisi simüle eder**. Diğer oyuncular son bilinen girdilerini tekrarlar; botlar deterministik.
+- Snapshot gelince: o duruma geri sar → sunucunun onayladığı (`ack`) girdileri at → kalanları yeniden
+  simüle et. Eski ve yeni tahmin arasındaki fark görsel ofset olur ve ~50 ms'de söner (60 px üstü
+  ışınlanma sayılır, yumuşatılmaz). Böylece kendi vuruşun top üzerinde anında görünür.
+- Sunucu her oyuncu için tick başına bir girdi tüketir; kuyruk 8'i aşarsa 3'e kırpılır (gecikme
+  birikmesin). Girdi gelmezse son girdi tekrarlanır.
+- Sim yalnızca `+ - * / sqrt` kullanır (trig yok) → motorlar arası aynı sonuç.
+
+## Fikir havuzu
+
+Penaltı/serbest vuruş yok; müzik; mobil kontroller; bot zorluk seviyesi;
+tekrar (replay) ve F9 hata klasörü; snapshot'ları ikili/delta kodlama.

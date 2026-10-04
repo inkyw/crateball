@@ -10,7 +10,11 @@ function json(res: ServerResponse, code: number, body: unknown): void {
 }
 
 /** devLog: sadece dev'de verilir (app.ts); prod'da null. */
-export function createHttpHandler(cfg: ServerConfig, devLog: Route | null) {
+export function createHttpHandler(
+  cfg: ServerConfig,
+  devLog: Route | null,
+  listRooms: () => unknown = () => [],
+) {
   const assets = cfg.staticDir ? sirv(cfg.staticDir, { single: true, etag: true }) : null;
   return async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     const { pathname } = new URL(req.url ?? '/', 'http://localhost');
@@ -23,6 +27,7 @@ export function createHttpHandler(cfg: ServerConfig, devLog: Route | null) {
       json(res, 200, { ok: true, version: cfg.version, mode: cfg.mode });
       return;
     }
+    if (pathname === '/rooms' && req.method === 'GET') return json(res, 200, listRooms());
     if (process.env.NODE_ENV !== 'production' && pathname === '/__log' && req.method === 'POST' && devLog)
       return devLog(req, res);
     // Statik servis (ve SPA fallback) sadece GET/HEAD; diğer her şey açıkça 404.

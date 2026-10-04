@@ -4,7 +4,7 @@ test('prod imajı: sahne yüklenir, dev araçları yok, WebSocket el sıkışır
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto('/');
-  await expect(page).toHaveTitle('Before Nightfall');
+  await expect(page).toHaveTitle('Crateball');
   await expect(page.locator('canvas#game')).toBeVisible();
   await page.keyboard.press('F1');
   await expect(page.locator('#debug-overlay')).toHaveCount(0);
@@ -15,7 +15,7 @@ test('prod imajı: sahne yüklenir, dev araçları yok, WebSocket el sıkışır
     () =>
       new Promise<string>((resolve, reject) => {
         const ws = new WebSocket(`ws://${location.host}/ws`);
-        ws.onopen = () => ws.send(JSON.stringify({ t: 'hello', protocolVersion: 1 }));
+        ws.onopen = () => ws.send(JSON.stringify({ t: 'hello', protocolVersion: 3 }));
         ws.onmessage = (e) => {
           resolve((JSON.parse(String(e.data)) as { t: string }).t);
           ws.close();

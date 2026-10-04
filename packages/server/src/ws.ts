@@ -7,23 +7,40 @@ import {
   PROTOCOL_VERSION,
   decodeClientMessage,
   encode,
+  type ErrorCode,
   type ServerMessage,
-} from '@gg/protocol';
+} from '@crateball/protocol';
+import type { Rooms } from './rooms';
 
 export const HELLO_TIMEOUT_MS = 5000;
 export const CLOSE_HELLO_TIMEOUT = 4000;
 export const CLOSE_VERSION_MISMATCH = 4001;
 
+const ERROR_TEXT: Record<ErrorCode, string> = {
+  version_mismatch: 'The game was updated — reload the page',
+  bad_message: 'Could not read message',
+  room_full: 'This room is full',
+  room_not_found: 'Room not found — check the code',
+  not_host: 'Only the host can do that',
+};
+
 export function attachWebSocket(
   server: Server,
   log: Logger,
+  rooms: Rooms,
   opts: { helloTimeoutMs?: number } = {},
 ): WebSocketServer {
   const wss = new WebSocketServer({ server, path: '/ws', maxPayload: MAX_MESSAGE_BYTES });
   wss.on('connection', (socket) => {
     const clientId = randomUUID().slice(0, 8);
     const clog = log.child({ clientId });
-    const send = (m: ServerMessage) => socket.send(encode(m));
+    const send = (m: ServerMessage) => sendRaw(encode(m));
+    const sendRaw = (raw: string) => {
+      if (socket.readyState === socket.OPEN) socket.send(raw);
+    };
+    const fail = (code: ErrorCode | null) => {
+      if (code) send({ t: 'error', code, message: ERROR_TEXT[code] });
+    };
     let greeted = false;
     const timer = setTimeout(() => {
       if (!greeted) socket.close(CLOSE_HELLO_TIMEOUT, 'hello timeout');
@@ -31,6 +48,7 @@ export function attachWebSocket(
 
     socket.on('close', (code) => {
       clearTimeout(timer);
+      rooms.leave(clientId);
       clog.info({ code }, 'ws kapandı');
     });
     socket.on('error', (err) => clog.warn({ err }, 'ws hatası'));
@@ -58,7 +76,46 @@ export function attachWebSocket(
         send({ t: 'error', code: 'bad_message', message: 'Send hello first' });
         return;
       }
-      if (msg.t === 'ping') send({ t: 'pong', id: msg.id, serverTime: Date.now() });
+      switch (msg.t) {
+        case 'ping':
+          send({ t: 'pong', id: msg.id, serverTime: Date.now() });
+          break;
+        case 'in':
+          rooms.input(clientId, msg.s, msg.b);
+          break;
+        case 'team':
+          rooms.switchTeam(clientId, msg.team);
+          break;
+        case 'role':
+          rooms.setRole(clientId, msg.role);
+          break;
+        case 'leave':
+          rooms.leave(clientId);
+          break;
+        case 'create': {
+          const room = rooms.create(clientId, msg.name, msg.roomName, msg.public, msg.settings, sendRaw);
+          send({ t: 'joined', code: room.code, playerId: clientId });
+          break;
+        }
+        case 'join': {
+          const r = rooms.join(msg.code, clientId, msg.name, sendRaw);
+          if (typeof r !== 'string') send({ t: 'joined', code: r.code, playerId: clientId });
+          else fail(r);
+          break;
+        }
+        case 'settings':
+          fail(rooms.setSettings(clientId, msg.settings));
+          break;
+        case 'start':
+          fail(rooms.start(clientId));
+          break;
+        case 'move':
+          fail(rooms.move(clientId, msg.id, msg.team));
+          break;
+        case 'swap':
+          fail(rooms.swap(clientId, msg.a, msg.b));
+          break;
+      }
     });
   });
   return wss;
