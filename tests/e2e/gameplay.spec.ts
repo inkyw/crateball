@@ -25,6 +25,9 @@ const cmd = <T = unknown>(page: Page, name: string, ...args: unknown[]) =>
   page.evaluate(([n, a]) => window.__game!.cmd(n as string, ...(a as unknown[])) as T, [name, args] as const);
 const CENTER = { x: 640, y: 360 };
 
+// Tests take 13-27 s locally; leave headroom for slower machines.
+test.describe.configure({ timeout: 90_000 });
+
 test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto('/?seed=1');
@@ -97,7 +100,7 @@ test("skipTo('night') sonrası dalga doğar ve HUD gece gösterir", async ({ pag
   await expect(page.locator('#phase-label')).toHaveText('Night 1');
   await cmd(page, 'timeScale', 4);
   await expect
-    .poll(async () => (await sim(page)).counts.creatures.stumpkin, { timeout: 15_000 })
+    .poll(async () => (await sim(page)).counts.creatures.stumpkin, { timeout: 60_000 })
     .toBeGreaterThan(0); // 25. sn dalgası
 });
 
