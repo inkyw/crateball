@@ -29,3 +29,39 @@ M0 incelemelerinde "Minor" olarak işaretlenip ertelenen maddeler. M1 planı yaz
 
 ## Sim
 - `stableStringify` sadece düz JSON (doküman yorumu eklendi); `formatArgs` `toString` atan nesnede patlayabilir (devtools).
+
+## M1'de ele alınanlar
+- İstemci: Vite `codeSplitting.groups` (three ayrı chunk), `fonts.gstatic.com` preconnect, `resize()` yükseklik 0, `dispose()` sızıntıları (sahip olunan geometri/doku/pass'ler açıkça bırakılır; Task 19 restart döngüsü testi `renderer.info.memory` ile doğrular) — Task 16/17/19.
+- Lint: `tseslint.config` → `defineConfig`; `globals.node` yalnızca sunucu/config/test dosyalarında — Task 1.
+
+## M1'den devredilenler (M2+)
+- Shadeling aurası ve Glowbug kanatları instancing için opak taşındı; saydam varyant (ayrı malzeme, 2 çağrı) değerlendirilebilir.
+- Kule bayrağı dalgalanmaz (instanced); Hearth alevleri grup ölçeğiyle animasyonlu (kit'te alev başına).
+- Çalılar baltayla temizlenir (2 vuruş, verim yok); kit'te yalnızca dekor.
+- Kaynak düşme/devrilme ve "+3" pop metni animasyonları (kit `removeNode`, `popText`) M3 oyun hissi işine bırakıldı.
+- Yaratık ölüm/doğum efekti yok (yalnızca büyüme ölçeği).
+- `LocalSession.setInput` her karede çağrılır; M2 `NetSession` için girdi `seq` numarası eklenecek.
+
+## M1 incelemelerinden ertelenen minörler
+
+### M2 öncesi zorunlu
+- Sim (build komutu): güvenilmeyen komut sayıları doğrulanmıyor (tam sayı olmayan/sonlu olmayan `i`/`j`, `slice` öncesi çok uzun çit hattı, `rot` zorlanmıyor) → M2 `NetSession`'dan önce doğrula.
+- Sunucu: WebSocket `Origin` kontrolü (yukarıda M0 notu; M2).
+- İstemci (debug): `timeScale` NaN/negatif değer `acc`'yi bozar; debug komutu doğrulamalı/sınırlamalı (Task 15 notu; Task 18'de ele alındıysa kapat).
+
+### sim
+- `secondsToTicks` yuvarlama testinde kesirli girdi yok.
+- Arazi: `randomFreeCell` için `maxR`/`gap`/null durumları test edilmiyor.
+- Flow: birden çok rotalı ağırlıklı karşılaştırma testi yok.
+- Hareket: çapraz kayma testi hiç çarpışmıyor; sınır testi `clampWorld` olmadan da geçiyor.
+- Build: kule için ilk olmayan hücre hatası ve `MAX_FENCE_LINE` testi yok.
+- Yaratık/oyuncu: şafakta mermi temizliği testi (Task 11 notu; fix turunda kapsanmış olabilir).
+
+### assets
+- Genel: `createGlowPool` testi yok; `geometry.test.ts`'te ölü satır; "power of two" yorumu kesin değil; `ensureCapacity` değiştirmede `visible`/`renderOrder` kopyalamıyor; modül yüklenirken `setGlowLevel(0)`.
+- Çit: z-kolu maskeleri test edilmiyor. Dispose testi yalnızca `not.toThrow`; kıvılcım ömrü sarması test edilmiyor; `LANTERN_GLASS_INTENSITY` fazladan export; çimen/çiçek/çakıl opak döngüde değil.
+- Karakterler: kullanılmayan glowbug seed hack'i; shadeling squash sert adım; negatif `t`'de çukur; ince animasyon testleri; `VillagerModel.dispose` yok (oyuncu yeniden kurulursa yeniden kullan).
+- Işık/su: su `sun` siyah başlar (`setNight` `setLight`'tan önce çağrılırsa gündüz tonu kararır); 420 su düzlemi ve 192 doku sabit; `createLighting`/`apply` testsiz; `sampleKeys` paylaşılan nesne döndürüyor.
+
+### client
+- `LocalSession`: `skipTo` bekleyen girdiyi tüketiyor; duraklatılmışken girdi kilitleri kalıyor; `onBlur` bayat sürüklemeyi bırakıyor; Esc sonrası `attackHeld` devam ediyor; `HOTBAR` cast; test boşlukları (basılı tutma tekrarı, blur, null hover geri dönüşü).
