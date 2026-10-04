@@ -48,13 +48,17 @@ jobs:
           printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
         env:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
       - name: Ship and rebuild on the server
+        env:
+          # Address and port are secrets so they stay out of the public repo and the logs.
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
         run: |
           VERSION="${GITHUB_SHA:0:7}"
           FORCE=""
           [ "${{ inputs.force }}" = "true" ] && FORCE=force
-          git archive --format=tar HEAD | ssh -p SSH_PORT -i ~/.ssh/deploy -o BatchMode=yes -o StrictHostKeyChecking=yes \
-            root@VPS_IP "deploy $VERSION $FORCE"
+          git archive --format=tar HEAD | ssh -p "$DEPLOY_PORT" -i ~/.ssh/deploy -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "$DEPLOY_HOST" "deploy $VERSION $FORCE"
       - name: Check the public site
         run: curl -fsS https://playcrateball.com/health

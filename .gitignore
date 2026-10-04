@@ -9,3 +9,6 @@ playwright-report/
 !.env.example
 .superpowers/
 .claude/worktrees/
+
+# Server address and SSH details stay local
+.deploy.env

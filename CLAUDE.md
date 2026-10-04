@@ -23,7 +23,7 @@ unset -f node npm npx pnpm pnpx corepack 2>/dev/null; export PATH="$HOME/.nvm/ve
 | `pnpm test` / `pnpm e2e` | Sadece Vitest / sadece Playwright |
 | `pnpm build` | `dist/client` + `dist/server/server.mjs` |
 | `pnpm docker:prod` | Prod imajını yerelde kurup smoke testini koşar (`docker smoke OK`) |
-| `pnpm deploy` | Commit'lenmiş HEAD'i VPS'e gönderir, orada derler. Maç oynanıyorsa bekler; `pnpm deploy --force` beklemez (açık odalar silinir) |
+| `pnpm deploy` | (`.deploy.env` gerekir) Commit'lenmiş HEAD'i VPS'e gönderir, orada derler. Maç oynanıyorsa bekler; `pnpm deploy --force` beklemez (açık odalar silinir) |
 | `pnpm logs` / `pnpm watch` | VPS'teki oyun logunu canlı izler / sadece önemli olayları süzer (`scripts/watch.mjs`) |
 
 ## Mimari kuralları (lint ile zorlanır)
@@ -38,7 +38,8 @@ unset -f node npm npx pnpm pnpx corepack 2>/dev/null; export PATH="$HOME/.nvm/ve
 ## Yayın (prod)
 
 - Adres: **https://playcrateball.com** (GoDaddy DNS: A @ → VPS, CNAME www → @). Caddy HTTPS sertifikasını kendisi alır/yeniler.
-- Sunucu: İstanbul VPS `VPS_IP`, SSH port **SSH_PORT**, `root`, yalnızca anahtarla (`~/.ssh/crateball_ed25519`; yedeği `~/Desktop/backup/crateball/`). ufw: SSH_PORT, 80, 443 açık. Güvenlik güncellemeleri otomatik.
+- Sunucu: İstanbul VPS, `root`, yalnızca SSH anahtarıyla. Adres/port/anahtar yolu **`.deploy.env`** içinde (git'e girmez; örnek: `deploy/deploy.env.example`); yedeği ve açıklaması yerel backup klasöründe (`OKUBENI.txt`). Sunucuya komut: `sh scripts/server.sh '<komut>'`. ufw: yalnızca SSH portu, 80, 443. Güvenlik güncellemeleri otomatik.
+- GitHub secret'ları: `DEPLOY_SSH_KEY` (sunucuda sadece `crateball-deploy` çalıştırabilen kısıtlı anahtar), `DEPLOY_KNOWN_HOSTS`, `DEPLOY_HOST`, `DEPLOY_PORT`.
 - Sunucuda `/opt/crateball`: `deploy/compose.yml` (oyun + Caddy), `deploy/Caddyfile`. Oyun logu sunucunun journald'ına gider (yayınlardan sonra da kalır, toplam en fazla 500 MB): `journalctl -o cat CONTAINER_TAG=crateball-game`.
 - Odalar bellekte: yeniden başlatma açık odaları siler. Tek süreç, tek makine olmalı.
 - `/health`: `{ ok, version, rooms, playing, players }`.
